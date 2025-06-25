@@ -1,0 +1,9 @@
+pyyaml
+pandas
+numpy
+matplotlib
+seaborn
+pytest
+pytest-cov
+python-dateutil
+scipy

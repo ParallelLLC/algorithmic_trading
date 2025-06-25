@@ -1,0 +1,35 @@
+# Configuration file for the agentic AI trading system
+data_source:
+  type: 'csv'
+  path: 'data/market_data.csv'
+
+trading:
+  symbol: 'AAPL'
+  timeframe: '1m'
+  capital: 100000
+
+risk:
+  max_position: 100
+  max_drawdown: 0.05
+
+execution:
+  broker_api: 'paper'
+  order_size: 10
+
+# Synthetic data generation settings
+synthetic_data:
+  base_price: 150.0
+  volatility: 0.02
+  trend: 0.001
+  noise_level: 0.005
+  generate_data: true
+  data_path: 'data/synthetic_market_data.csv'
+
+# Logging configuration
+logging:
+  log_level: 'INFO'
+  log_dir: 'logs'
+  enable_console: true
+  enable_file: true
+  max_file_size_mb: 10
+  backup_count: 5
