@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Main trading system using Docker Hub image
+  trading-system:
+    image: ${DOCKER_USERNAME:-yourusername}/algorithmic-trading:${TAG:-latest}
+    container_name: algorithmic-trading-hub
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    command: ["python", "-m", "agentic_ai_system.main", "--mode", "live", "--duration", "300"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Development environment with Jupyter Lab
+  development:
+    image: ${DOCKER_USERNAME:-yourusername}/algorithmic-trading:${TAG:-latest}
+    container_name: trading-dev-hub
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config.yaml:/app/config.yaml:ro
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=DEBUG
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]
+    restart: unless-stopped
+
+  # FinRL training service
+  finrl-training:
+    image: ${DOCKER_USERNAME:-yourusername}/algorithmic-trading:${TAG:-latest}
+    container_name: finrl-training-hub
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    command: ["python", "finrl_demo.py"]
+    restart: "no"
+
+volumes:
+  data:
+  logs:
+  models: 

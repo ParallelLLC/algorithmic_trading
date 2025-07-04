@@ -108,17 +108,21 @@ show_help() {
     echo "  test        Run tests in Docker"
     echo "  dev         Start development environment"
     echo "  prod        Start production environment"
+    echo "  hub         Start using Docker Hub images"
     echo "  stop        Stop all containers"
     echo "  cleanup     Clean up Docker resources"
     echo "  logs [SVC]  Show logs for a service (default: trading-system)"
     echo "  run CMD     Run a specific command in the container"
+    echo "  deploy      Deploy to Docker Hub (requires docker-hub-deploy.sh)"
     echo "  help        Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 build"
     echo "  $0 dev"
+    echo "  $0 hub"
     echo "  $0 logs"
     echo "  $0 run 'python demo.py'"
+    echo "  $0 deploy"
 }
 
 # Main script logic
@@ -155,6 +159,27 @@ case "${1:-help}" in
         fi
         build_image
         run_command "$2"
+        ;;
+    hub)
+        print_status "Starting services using Docker Hub images..."
+        if [ -z "$DOCKER_USERNAME" ]; then
+            print_error "DOCKER_USERNAME environment variable not set"
+            print_status "Please set it: export DOCKER_USERNAME=yourusername"
+            exit 1
+        fi
+        docker compose -f docker-compose.hub.yml up -d
+        print_success "Docker Hub services started"
+        print_status "Trading system available at: http://localhost:8000"
+        print_status "Jupyter Lab available at: http://localhost:8888"
+        ;;
+    deploy)
+        print_status "Deploying to Docker Hub..."
+        if [ -f "scripts/docker-hub-deploy.sh" ]; then
+            ./scripts/docker-hub-deploy.sh "$@"
+        else
+            print_error "docker-hub-deploy.sh not found"
+            exit 1
+        fi
         ;;
     help|*)
         show_help
