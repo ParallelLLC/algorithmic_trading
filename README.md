@@ -1,30 +1,3 @@
----
-language: code
-license: apache-2.0
-tags:
-- algorithmic-trading
-- reinforcement-learning
-- finrl
-- trading-bot
-- machine-learning
-- finance
-- quantitative-finance
-- backtesting
-- risk-management
-- technical-analysis
-- docker
-- python
-datasets:
-- synthetic-market-data
-metrics:
-- sharpe-ratio
-- total-return
-- drawdown
-- win-rate
-library_name: algorithmic-trading
-paperswithcode_id: null
----
-
 # Algorithmic Trading System with FinRL and Alpaca Integration
 
 A sophisticated algorithmic trading system that combines reinforcement learning (FinRL) with real-time market data and order execution through Alpaca Markets. This system supports both paper trading and live trading with advanced risk management and technical analysis.
@@ -67,7 +40,7 @@ A sophisticated algorithmic trading system that combines reinforcement learning 
 
 ### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/EAName/algorithmic_trading.git
 cd algorithmic_trading
 ```
 
@@ -506,7 +479,3 @@ This project is licensed under the Alpaca 2 License - see the LICENSE file for d
 - [FinRL Documentation](https://finrl.readthedocs.io/)
 - [Stable Baselines3 Documentation](https://stable-baselines3.readthedocs.io/)
 - [Gymnasium Documentation](https://gymnasium.farama.org/)
-
----
-
-**Disclaimer**: This software is for educational and research purposes. Trading involves substantial risk of loss and is not suitable for all investors. Past performance does not guarantee future results. Always consult with a financial advisor before making investment decisions. 
