@@ -127,15 +127,14 @@ def train_finrl_agent(config: dict, train_data: pd.DataFrame, test_data: pd.Data
     logger.info("Starting FinRL agent training")
     
     # Create FinRL agent
-    finrl_config = FinRLConfig(**config['finrl'])
+    finrl_config = FinRLConfig(**{k: v for k, v in config['finrl'].items() if k in FinRLConfig.__dataclass_fields__})
     agent = FinRLAgent(finrl_config)
     
     # Train the agent
     training_result = agent.train(
         data=train_data,
-        total_timesteps=config['finrl']['training']['total_timesteps'],
-        eval_freq=config['finrl']['training']['eval_freq'],
-        eval_data=test_data
+        config=config,
+        total_timesteps=config['finrl']['training']['total_timesteps']
     )
     
     logger.info(f"Training completed: {training_result}")
@@ -149,27 +148,31 @@ def train_finrl_agent(config: dict, train_data: pd.DataFrame, test_data: pd.Data
     return agent
 
 
-def evaluate_agent(agent: FinRLAgent, test_data: pd.DataFrame) -> dict:
+def evaluate_agent(agent: FinRLAgent, test_data: pd.DataFrame, config: dict) -> dict:
     """Evaluate the trained agent"""
     logger.info("Evaluating FinRL agent")
     
     # Evaluate on test data
-    evaluation_results = agent.evaluate(test_data)
+    evaluation_results = agent.evaluate(test_data, config)
     
     logger.info(f"Evaluation results: {evaluation_results}")
     
     return evaluation_results
 
 
-def generate_predictions(agent: FinRLAgent, test_data: pd.DataFrame) -> list:
+def generate_predictions(agent: FinRLAgent, test_data: pd.DataFrame, config: dict) -> list:
     """Generate trading predictions"""
     logger.info("Generating trading predictions")
     
-    predictions = agent.predict(test_data)
+    prediction_results = agent.predict(test_data, config)
     
-    logger.info(f"Generated {len(predictions)} predictions")
-    
-    return predictions
+    if prediction_results['success']:
+        predictions = prediction_results['actions']
+        logger.info(f"Generated {len(predictions)} predictions")
+        return predictions
+    else:
+        logger.error(f"Prediction failed: {prediction_results['error']}")
+        return []
 
 
 def plot_results(test_data: pd.DataFrame, predictions: list, evaluation_results: dict):
@@ -182,16 +185,17 @@ def plot_results(test_data: pd.DataFrame, predictions: list, evaluation_results:
     # Plot 1: Price and predictions
     axes[0].plot(test_data.index, test_data['close'], label='Close Price', alpha=0.7)
     
-    # Mark buy/sell signals
-    buy_signals = [i for i, pred in enumerate(predictions) if pred == 2]
-    sell_signals = [i for i, pred in enumerate(predictions) if pred == 0]
-    
-    if buy_signals:
-        axes[0].scatter(test_data.index[buy_signals], test_data['close'].iloc[buy_signals], 
-                       color='green', marker='^', s=100, label='Buy Signal', alpha=0.8)
-    if sell_signals:
-        axes[0].scatter(test_data.index[sell_signals], test_data['close'].iloc[sell_signals], 
-                       color='red', marker='v', s=100, label='Sell Signal', alpha=0.8)
+    # Mark buy/sell signals only if predictions are available
+    if predictions:
+        buy_signals = [i for i, pred in enumerate(predictions) if pred == 2]
+        sell_signals = [i for i, pred in enumerate(predictions) if pred == 0]
+        
+        if buy_signals:
+            axes[0].scatter(test_data.index[buy_signals], test_data['close'].iloc[buy_signals], 
+                           color='green', marker='^', s=100, label='Buy Signal', alpha=0.8)
+        if sell_signals:
+            axes[0].scatter(test_data.index[sell_signals], test_data['close'].iloc[sell_signals], 
+                           color='red', marker='v', s=100, label='Sell Signal', alpha=0.8)
     
     axes[0].set_title('Price Action and Trading Signals')
     axes[0].set_ylabel('Price')
@@ -236,23 +240,30 @@ def print_summary(evaluation_results: dict, predictions: list):
     print("FINRL TRADING SYSTEM SUMMARY")
     print("="*60)
     
-    print(f"Algorithm: {evaluation_results.get('algorithm', 'Unknown')}")
-    print(f"Total Return: {evaluation_results['total_return']:.2%}")
-    print(f"Final Portfolio Value: ${evaluation_results['final_portfolio_value']:,.2f}")
-    print(f"Total Reward: {evaluation_results['total_reward']:.4f}")
-    print(f"Sharpe Ratio: {evaluation_results['sharpe_ratio']:.4f}")
-    print(f"Number of Trading Steps: {evaluation_results['steps']}")
+    if evaluation_results.get('success', False):
+        print(f"Algorithm: {evaluation_results.get('algorithm', 'Unknown')}")
+        print(f"Total Return: {evaluation_results.get('total_return', 0):.2%}")
+        print(f"Final Portfolio Value: ${evaluation_results.get('final_portfolio_value', 0):,.2f}")
+        print(f"Total Reward: {evaluation_results.get('total_reward', 0):.4f}")
+        print(f"Sharpe Ratio: {evaluation_results.get('sharpe_ratio', 0):.4f}")
+        print(f"Number of Trading Steps: {evaluation_results.get('steps', 0)}")
+        print(f"Max Drawdown: {evaluation_results.get('max_drawdown', 0):.2%}")
+    else:
+        print(f"Evaluation failed: {evaluation_results.get('error', 'Unknown error')}")
     
     # Trading statistics
-    buy_signals = sum(1 for pred in predictions if pred == 2)
-    sell_signals = sum(1 for pred in predictions if pred == 0)
-    hold_signals = sum(1 for pred in predictions if pred == 1)
-    
-    print(f"\nTrading Signals:")
-    print(f"  Buy signals: {buy_signals}")
-    print(f"  Sell signals: {sell_signals}")
-    print(f"  Hold signals: {hold_signals}")
-    print(f"  Total signals: {len(predictions)}")
+    if predictions:
+        buy_signals = sum(1 for pred in predictions if pred == 2)
+        sell_signals = sum(1 for pred in predictions if pred == 0)
+        hold_signals = sum(1 for pred in predictions if pred == 1)
+        
+        print(f"\nTrading Signals:")
+        print(f"  Buy signals: {buy_signals}")
+        print(f"  Sell signals: {sell_signals}")
+        print(f"  Hold signals: {hold_signals}")
+        print(f"  Total signals: {len(predictions)}")
+    else:
+        print(f"\nNo trading predictions available")
     
     print("\n" + "="*60)
 
@@ -273,10 +284,10 @@ def main():
         agent = train_finrl_agent(config, train_data, test_data)
         
         # Evaluate agent
-        evaluation_results = evaluate_agent(agent, test_data)
+        evaluation_results = evaluate_agent(agent, test_data, config)
         
         # Generate predictions
-        predictions = generate_predictions(agent, test_data)
+        predictions = generate_predictions(agent, test_data, config)
         
         # Create visualizations
         plot_results(test_data, predictions, evaluation_results)
