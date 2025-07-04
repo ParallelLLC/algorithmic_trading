@@ -423,8 +423,4 @@ The system includes robust error handling:
 
 ## License
 
-This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](LICENSE) file for details.
-
-## Disclaimer
-
-This is a simulation system for educational and testing purposes. It is not intended for real trading and should not be used with real money. Always test thoroughly before using any trading system with real funds. 
+This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](LICENSE) file for details. 
