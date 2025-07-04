@@ -18,6 +18,7 @@ import logging
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 import yaml
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +255,18 @@ class FinRLAgent:
         self.eval_env = None
         self.callback = None
         
-        logger.info(f"Initializing FinRL agent with algorithm: {config.algorithm}")
+        logger.info(f"Initializing FinRL agent with algorithm: {self.config.algorithm}")
+
+    def _get_valid_kwargs(self, algo_class):
+        """Return a dict of config fields valid for the given algorithm class, excluding tensorboard_log."""
+        sig = inspect.signature(algo_class.__init__)
+        valid_keys = set(sig.parameters.keys())
+        # Exclude 'self', 'policy', and 'tensorboard_log' which are always passed explicitly
+        valid_keys.discard('self')
+        valid_keys.discard('policy')
+        valid_keys.discard('tensorboard_log')
+        # Build kwargs from config dataclass
+        return {k: getattr(self.config, k) for k in self.config.__dataclass_fields__ if k in valid_keys}
     
     def create_environment(self, data: pd.DataFrame, config: Dict[str, Any], 
                           initial_balance: float = 100000, use_real_broker: bool = False) -> TradingEnvironment:
@@ -335,54 +347,35 @@ class FinRLAgent:
             
             # Initialize model based on algorithm
             if self.config.algorithm == "PPO":
+                algo_kwargs = self._get_valid_kwargs(PPO)
                 self.model = PPO(
                     "MlpPolicy",
                     self.env,
-                    learning_rate=self.config.learning_rate,
-                    batch_size=self.config.batch_size,
-                    buffer_size=self.config.buffer_size,
-                    learning_starts=self.config.learning_starts,
-                    gamma=self.config.gamma,
-                    train_freq=self.config.train_freq,
-                    gradient_steps=self.config.gradient_steps,
-                    verbose=self.config.verbose,
+                    **algo_kwargs,
                     tensorboard_log=self.config.tensorboard_log
                 )
             elif self.config.algorithm == "A2C":
+                algo_kwargs = self._get_valid_kwargs(A2C)
                 self.model = A2C(
                     "MlpPolicy",
                     self.env,
-                    learning_rate=self.config.learning_rate,
-                    gamma=self.config.gamma,
-                    verbose=self.config.verbose,
+                    **algo_kwargs,
                     tensorboard_log=self.config.tensorboard_log
                 )
             elif self.config.algorithm == "DDPG":
+                algo_kwargs = self._get_valid_kwargs(DDPG)
                 self.model = DDPG(
                     "MlpPolicy",
                     self.env,
-                    learning_rate=self.config.learning_rate,
-                    buffer_size=self.config.buffer_size,
-                    learning_starts=self.config.learning_starts,
-                    gamma=self.config.gamma,
-                    tau=self.config.tau,
-                    train_freq=self.config.train_freq,
-                    gradient_steps=self.config.gradient_steps,
-                    verbose=self.config.verbose,
+                    **algo_kwargs,
                     tensorboard_log=self.config.tensorboard_log
                 )
             elif self.config.algorithm == "TD3":
+                algo_kwargs = self._get_valid_kwargs(TD3)
                 self.model = TD3(
                     "MlpPolicy",
                     self.env,
-                    learning_rate=self.config.learning_rate,
-                    buffer_size=self.config.buffer_size,
-                    learning_starts=self.config.learning_starts,
-                    gamma=self.config.gamma,
-                    tau=self.config.tau,
-                    train_freq=self.config.train_freq,
-                    gradient_steps=self.config.gradient_steps,
-                    verbose=self.config.verbose,
+                    **algo_kwargs,
                     tensorboard_log=self.config.tensorboard_log
                 )
             else:
@@ -660,4 +653,9 @@ class FinRLAgent:
         ema_fast = prices.ewm(span=fast).mean()
         ema_slow = prices.ewm(span=slow).mean()
         macd = ema_fast - ema_slow
-        return macd 
+        return macd
+
+
+def create_finrl_agent_from_config(config: FinRLConfig) -> FinRLAgent:
+    """Create a FinRL agent from configuration"""
+    return FinRLAgent(config) 
