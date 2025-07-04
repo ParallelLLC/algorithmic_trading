@@ -12,3 +12,4 @@ stable-baselines3
 gymnasium
 tensorboard
 torch
+opencv-python-headless

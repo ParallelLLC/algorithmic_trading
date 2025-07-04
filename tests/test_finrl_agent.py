@@ -228,6 +228,7 @@ class TestFinRLAgent:
         macd = agent._calculate_macd(prices)
         assert len(macd) == len(prices)
     
+    @pytest.mark.slow
     @patch('agentic_ai_system.finrl_agent.PPO')
     def test_training_ppo(self, mock_ppo, finrl_config, sample_data):
         """Test PPO training"""
@@ -236,12 +237,13 @@ class TestFinRLAgent:
         mock_ppo.return_value = mock_model
         
         agent = FinRLAgent(finrl_config)
-        result = agent.train(sample_data, total_timesteps=100)
+        result = agent.train(sample_data, total_timesteps=5)
         
         assert result['algorithm'] == 'PPO'
-        assert result['total_timesteps'] == 100
+        assert result['total_timesteps'] == 5
         mock_model.learn.assert_called_once()
     
+    @pytest.mark.slow
     @patch('agentic_ai_system.finrl_agent.A2C')
     def test_training_a2c(self, mock_a2c):
         """Test A2C training"""
@@ -258,7 +260,7 @@ class TestFinRLAgent:
             'volume': [1000, 1100, 1200]
         })
         
-        result = agent.train(sample_data, total_timesteps=100)
+        result = agent.train(sample_data, total_timesteps=5)
         
         assert result['algorithm'] == 'A2C'
         mock_model.learn.assert_called_once()

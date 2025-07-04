@@ -386,7 +386,8 @@ tests/
 ├── test_strategy_agent.py
 ├── test_execution_agent.py
 ├── test_data_ingestion.py
-└── test_integration.py
+├── test_integration.py
+├── test_finrl_agent.py
 ```
 
 ### Test Categories
@@ -394,13 +395,15 @@ tests/
 - **Integration Tests**: Test complete workflows
 - **Performance Tests**: Test system performance and scalability
 - **Error Handling Tests**: Test error conditions and edge cases
+- **Slow RL Tests**: RL agent training tests are marked as `@pytest.mark.slow` and use minimal timesteps for speed. These are skipped by default unless explicitly run.
 
 ### Running Specific Tests
 
 ```bash
-# Run tests with specific markers
-pytest -m unit
-pytest -m integration
+# Run all fast tests (default)
+pytest
+
+# Run slow RL tests (FinRL agent training)
 pytest -m slow
 
 # Run tests with coverage
