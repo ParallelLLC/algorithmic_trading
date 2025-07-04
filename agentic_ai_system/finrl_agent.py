@@ -317,11 +317,18 @@ class FinRLAgent:
             self.eval_env = self.create_environment(eval_data, config, use_real_broker=False)
             
             # Create callback for evaluation
+            finrl_config = config.get('finrl', {})
+            training_config = finrl_config.get('training', {})
+            
+            model_save_path = training_config.get('model_save_path', 'models/finrl')
+            tensorboard_log = finrl_config.get('tensorboard_log', self.config.tensorboard_log)
+            eval_freq = training_config.get('eval_freq', 1000)
+            
             self.callback = EvalCallback(
                 self.eval_env,
-                best_model_save_path=config['finrl']['training']['model_save_path'],
-                log_path=config['finrl']['tensorboard_log'],
-                eval_freq=config['finrl']['training']['eval_freq'],
+                best_model_save_path=model_save_path,
+                log_path=tensorboard_log,
+                eval_freq=eval_freq,
                 deterministic=True,
                 render=False
             )
@@ -390,7 +397,7 @@ class FinRLAgent:
             )
             
             # Save the final model
-            model_path = f"{config['finrl']['training']['model_save_path']}/final_model"
+            model_path = f"{model_save_path}/final_model"
             self.model.save(model_path)
             logger.info(f"Training completed. Model saved to {model_path}")
             
@@ -424,8 +431,13 @@ class FinRLAgent:
         try:
             if self.model is None:
                 # Try to load model
-                model_path = config['finrl']['inference']['model_path']
-                if config['finrl']['inference']['use_trained_model']:
+                finrl_config = config.get('finrl', {})
+                inference_config = finrl_config.get('inference', {})
+                
+                model_path = inference_config.get('model_path', 'models/finrl/final_model')
+                use_trained_model = inference_config.get('use_trained_model', True)
+                
+                if use_trained_model:
                     self.model = self._load_model(model_path, config)
                     if self.model is None:
                         return {'success': False, 'error': 'No trained model available'}
@@ -454,7 +466,7 @@ class FinRLAgent:
                 portfolio_values.append(info['portfolio_value'])
             
             # Calculate final metrics
-            initial_value = config['trading']['capital']
+            initial_value = config.get('trading', {}).get('capital', 100000)
             final_value = portfolio_values[-1] if portfolio_values else initial_value
             total_return = (final_value - initial_value) / initial_value
             
@@ -476,19 +488,152 @@ class FinRLAgent:
                 'error': str(e)
             }
     
+    def evaluate(self, data: pd.DataFrame, config: Dict[str, Any], 
+                 use_real_broker: bool = False) -> Dict[str, Any]:
+        """
+        Evaluate the trained model on test data
+        
+        Args:
+            data: Market data for evaluation
+            config: Configuration dictionary
+            use_real_broker: Whether to use real Alpaca broker for execution
+            
+        Returns:
+            Evaluation results dictionary
+        """
+        try:
+            if self.model is None:
+                raise ValueError("Model not trained")
+            
+            # Prepare data
+            prepared_data = self.prepare_data(data)
+            
+            # Create environment
+            env = self.create_environment(prepared_data, config, use_real_broker=use_real_broker)
+            
+            # Run evaluation
+            obs, _ = env.reset()
+            done = False
+            actions = []
+            rewards = []
+            portfolio_values = []
+            
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, done, _, info = env.step(action)
+                
+                actions.append(action)
+                rewards.append(reward)
+                portfolio_values.append(info['portfolio_value'])
+            
+            # Calculate evaluation metrics
+            initial_value = config.get('trading', {}).get('capital', 100000)
+            final_value = portfolio_values[-1] if portfolio_values else initial_value
+            total_return = (final_value - initial_value) / initial_value
+            
+            # Calculate additional metrics
+            total_trades = len([a for a in actions if a != 1])  # Count non-hold actions
+            avg_reward = np.mean(rewards) if rewards else 0
+            max_drawdown = self._calculate_max_drawdown(portfolio_values)
+            
+            return {
+                'success': True,
+                'total_return': total_return,
+                'total_trades': total_trades,
+                'avg_reward': avg_reward,
+                'max_drawdown': max_drawdown,
+                'final_portfolio_value': final_value,
+                'initial_portfolio_value': initial_value,
+                'actions': actions,
+                'rewards': rewards,
+                'portfolio_values': portfolio_values
+            }
+            
+        except Exception as e:
+            logger.error(f"Error during evaluation: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def save_model(self, model_path: str) -> bool:
+        """
+        Save the trained model
+        
+        Args:
+            model_path: Path to save the model
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.model is None:
+                raise ValueError("Model not trained")
+            
+            self.model.save(model_path)
+            logger.info(f"Model saved to {model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving model: {e}")
+            return False
+    
+    def load_model(self, model_path: str, config: Dict[str, Any]) -> bool:
+        """
+        Load a trained model
+        
+        Args:
+            model_path: Path to the model
+            config: Configuration dictionary
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.model = self._load_model(model_path, config)
+            if self.model is None:
+                return False
+            
+            logger.info(f"Model loaded from {model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error loading model: {e}")
+            return False
+    
+    def _calculate_max_drawdown(self, portfolio_values: List[float]) -> float:
+        """Calculate maximum drawdown from portfolio values"""
+        if not portfolio_values:
+            return 0.0
+        
+        peak = portfolio_values[0]
+        max_drawdown = 0.0
+        
+        for value in portfolio_values:
+            if value > peak:
+                peak = value
+            drawdown = (peak - value) / peak
+            max_drawdown = max(max_drawdown, drawdown)
+        
+        return max_drawdown
+    
     def _load_model(self, model_path: str, config: Dict[str, Any]):
         """Load a trained model"""
         try:
-            if config['finrl']['algorithm'] == "PPO":
+            # Get algorithm from config or use default
+            finrl_config = config.get('finrl', {})
+            algorithm = finrl_config.get('algorithm', self.config.algorithm)
+            
+            if algorithm == "PPO":
                 return PPO.load(model_path)
-            elif config['finrl']['algorithm'] == "A2C":
+            elif algorithm == "A2C":
                 return A2C.load(model_path)
-            elif config['finrl']['algorithm'] == "DDPG":
+            elif algorithm == "DDPG":
                 return DDPG.load(model_path)
-            elif config['finrl']['algorithm'] == "TD3":
+            elif algorithm == "TD3":
                 return TD3.load(model_path)
             else:
-                logger.error(f"Unsupported algorithm for model loading: {config['finrl']['algorithm']}")
+                logger.error(f"Unsupported algorithm for model loading: {algorithm}")
                 return None
         except Exception as e:
             logger.error(f"Error loading model: {e}")

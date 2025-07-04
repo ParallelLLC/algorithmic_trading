@@ -273,6 +273,18 @@ class ExecutionAgent(Agent):
             self.log_error(e, "Error calculating commission")
             return 0.0
     
+    def _execute_order(self, signal: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a trading order (private method for testing)
+        
+        Args:
+            signal: Trading signal
+            
+        Returns:
+            Execution result
+        """
+        return self.act(signal)
+    
     def _generate_order_id(self) -> str:
         """Generate unique order ID"""
         import uuid
