@@ -60,7 +60,7 @@ A comprehensive algorithmic trading system with synthetic data generation, compr
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/EAName/algorithmic_trading.git
 cd algorithmic_trading
 ```
 
