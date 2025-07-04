@@ -1,7 +1,5 @@
 ---
-language:
-- python
-- yaml
+language: code
 license: apache-2.0
 tags:
 - algorithmic-trading
