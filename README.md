@@ -98,7 +98,7 @@ docker run -p 8000:8000 algorithmic-trading
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/ParallelLLC/algorithmic_trading.git
+git clone https://huggingface.co/esalguero/algorithmic_trading
 cd algorithmic_trading
 ```
 
