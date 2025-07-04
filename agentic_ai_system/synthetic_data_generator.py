@@ -226,3 +226,15 @@ class SyntheticDataGenerator:
             return data
         else:
             raise ValueError(f"Unknown scenario type: {scenario_type}") 
+
+    def generate_data(self) -> pd.DataFrame:
+        """
+        Generate synthetic OHLCV data using config defaults.
+        Returns:
+            DataFrame with OHLCV data
+        """
+        symbol = self.config.get('trading', {}).get('symbol', 'AAPL')
+        start_date = self.config.get('synthetic_data', {}).get('start_date', '2024-01-01')
+        end_date = self.config.get('synthetic_data', {}).get('end_date', '2024-12-31')
+        frequency = self.config.get('synthetic_data', {}).get('frequency', '1min')
+        return self.generate_ohlcv_data(symbol=symbol, start_date=start_date, end_date=end_date, frequency=frequency) 

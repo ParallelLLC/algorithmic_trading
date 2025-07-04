@@ -87,6 +87,10 @@ def _load_csv_data(config: Dict[str, Any]) -> Optional[pd.DataFrame]:
         # Load CSV data
         data = pd.read_csv(file_path)
         
+        # Handle both 'timestamp' and 'date' column names
+        if 'date' in data.columns and 'timestamp' not in data.columns:
+            data = data.rename(columns={'date': 'timestamp'})
+        
         # Ensure required columns exist
         required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
         missing_columns = [col for col in required_columns if col not in data.columns]
@@ -126,12 +130,15 @@ def _load_synthetic_data(config: Dict[str, Any]) -> Optional[pd.DataFrame]:
         generator = SyntheticDataGenerator(config)
         data = generator.generate_data()
         
-        # Save generated data
-        os.makedirs(os.path.dirname(data_path), exist_ok=True)
-        data.to_csv(data_path, index=False)
-        logger.info(f"Saved synthetic data to: {data_path}")
-        
-        return data
+        if data is not None and not data.empty:
+            # Save generated data
+            os.makedirs(os.path.dirname(data_path), exist_ok=True)
+            data.to_csv(data_path, index=False)
+            logger.info(f"Saved synthetic data to: {data_path}")
+            return data
+        else:
+            logger.error("Failed to generate synthetic data")
+            return None
         
     except Exception as e:
         logger.error(f"Error loading synthetic data: {e}")
@@ -151,6 +158,10 @@ def validate_data(data: pd.DataFrame) -> bool:
         if data is None or data.empty:
             logger.error("Data is None or empty")
             return False
+        
+        # Handle both 'timestamp' and 'date' column names
+        if 'date' in data.columns and 'timestamp' not in data.columns:
+            data = data.rename(columns={'date': 'timestamp'})
         
         # Check required columns
         required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
