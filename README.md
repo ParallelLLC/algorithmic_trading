@@ -1,6 +1,6 @@
 # Algorithmic Trading System
 
-A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, and extensive testing capabilities.
+A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, extensive testing capabilities, and FinRL reinforcement learning integration.
 
 ## Features
 
@@ -9,6 +9,15 @@ A comprehensive algorithmic trading system with synthetic data generation, compr
 - **Technical Analysis**: Built-in technical indicators (SMA, RSI, Bollinger Bands, MACD)
 - **Risk Management**: Position sizing and drawdown limits
 - **Order Execution**: Simulated broker integration with realistic execution delays
+
+### FinRL Reinforcement Learning
+- **Multiple RL Algorithms**: Support for PPO, A2C, DDPG, and TD3
+- **Custom Trading Environment**: Gymnasium-compatible environment for RL training
+- **Technical Indicators Integration**: Automatic calculation and inclusion of technical indicators
+- **Portfolio Management**: Realistic portfolio simulation with transaction costs
+- **Model Persistence**: Save and load trained models for inference
+- **TensorBoard Integration**: Training progress visualization and monitoring
+- **Comprehensive Evaluation**: Performance metrics including Sharpe ratio and total returns
 
 ### Synthetic Data Generation
 - **Realistic Market Data**: Generate OHLCV data using geometric Brownian motion
@@ -225,6 +234,129 @@ logger.info("Trading signal generated")
 logger.warning("High volatility detected")
 logger.error("Order execution failed", exc_info=True)
 ```
+
+## FinRL Integration
+
+### Overview
+The system now includes FinRL (Financial Reinforcement Learning) integration, providing state-of-the-art reinforcement learning capabilities for algorithmic trading. The FinRL agent can learn optimal trading strategies through interaction with a simulated market environment.
+
+### Supported Algorithms
+- **PPO (Proximal Policy Optimization)**: Stable policy gradient method
+- **A2C (Advantage Actor-Critic)**: Actor-critic method with advantage estimation
+- **DDPG (Deep Deterministic Policy Gradient)**: Continuous action space algorithm
+- **TD3 (Twin Delayed DDPG)**: Improved version of DDPG with twin critics
+
+### Trading Environment
+The custom trading environment provides:
+- **Action Space**: Discrete actions (0=Buy, 1=Hold, 2=Sell)
+- **Observation Space**: OHLCV data + technical indicators + portfolio state
+- **Reward Function**: Portfolio return-based rewards
+- **Transaction Costs**: Realistic trading fees and slippage
+- **Position Limits**: Maximum position constraints
+
+### Usage Examples
+
+#### Basic FinRL Training
+```python
+from agentic_ai_system.finrl_agent import FinRLAgent, FinRLConfig
+import pandas as pd
+
+# Create configuration
+config = FinRLConfig(
+    algorithm="PPO",
+    learning_rate=0.0003,
+    batch_size=64,
+    total_timesteps=100000
+)
+
+# Initialize agent
+agent = FinRLAgent(config)
+
+# Train the agent
+training_result = agent.train(
+    data=market_data,
+    total_timesteps=100000,
+    eval_freq=10000
+)
+
+# Generate predictions
+predictions = agent.predict(test_data)
+
+# Evaluate performance
+evaluation = agent.evaluate(test_data)
+print(f"Total Return: {evaluation['total_return']:.2%}")
+```
+
+#### Using Configuration File
+```python
+from agentic_ai_system.finrl_agent import create_finrl_agent_from_config
+
+# Create agent from config file
+agent = create_finrl_agent_from_config('config.yaml')
+
+# Train and evaluate
+agent.train(market_data)
+results = agent.evaluate(test_data)
+```
+
+#### Running FinRL Demo
+```bash
+# Run the complete FinRL demo
+python finrl_demo.py
+
+# This will:
+# 1. Generate synthetic training and test data
+# 2. Train a FinRL agent
+# 3. Evaluate performance
+# 4. Generate trading predictions
+# 5. Create visualization plots
+```
+
+### Configuration
+FinRL settings can be configured in `config.yaml`:
+
+```yaml
+finrl:
+  algorithm: 'PPO'  # PPO, A2C, DDPG, TD3
+  learning_rate: 0.0003
+  batch_size: 64
+  buffer_size: 1000000
+  gamma: 0.99
+  tensorboard_log: 'logs/finrl_tensorboard'
+  training:
+    total_timesteps: 100000
+    eval_freq: 10000
+    save_best_model: true
+    model_save_path: 'models/finrl_best/'
+  inference:
+    use_trained_model: false
+    model_path: 'models/finrl_best/best_model'
+```
+
+### Model Management
+```python
+# Save trained model
+agent.save_model('models/my_finrl_model')
+
+# Load pre-trained model
+agent.load_model('models/my_finrl_model')
+
+# Continue training
+agent.train(more_data, total_timesteps=50000)
+```
+
+### Performance Monitoring
+- **TensorBoard Integration**: Monitor training progress
+- **Evaluation Metrics**: Total return, Sharpe ratio, portfolio value
+- **Trading Statistics**: Buy/sell signal analysis
+- **Visualization**: Price charts with trading signals
+
+### Advanced Features
+- **Multi-timeframe Support**: Train on different data frequencies
+- **Feature Engineering**: Automatic technical indicator calculation
+- **Risk Management**: Built-in position and drawdown limits
+- **Backtesting**: Comprehensive backtesting capabilities
+- **Hyperparameter Tuning**: Easy configuration for different algorithms
 
 ## Testing
 
