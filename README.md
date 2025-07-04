@@ -23,6 +23,13 @@ A sophisticated algorithmic trading system that combines reinforcement learning 
 - **Account Management**: Portfolio monitoring and position tracking
 - **Order Types**: Market orders, limit orders, and order cancellation
 
+### 🎨 Comprehensive UI System
+- **Streamlit UI**: Quick prototyping and data science workflows
+- **Dash UI**: Enterprise-grade interactive dashboards
+- **Jupyter UI**: Interactive notebook-based interfaces
+- **WebSocket API**: Real-time trading data streaming
+- **Multi-interface Support**: Choose the right UI for your needs
+
 ### Advanced Features
 - **Docker Support**: Containerized deployment for consistency
 - **Comprehensive Logging**: Detailed logs for debugging and performance analysis
@@ -100,7 +107,22 @@ finrl:
 
 ## 🚀 Quick Start
 
-### 1. Run the Demo
+### 1. Launch the UI (Recommended)
+```bash
+# Launch Streamlit UI (best for beginners)
+python ui_launcher.py streamlit
+
+# Launch Dash UI (best for production)
+python ui_launcher.py dash
+
+# Launch Jupyter Lab
+python ui_launcher.py jupyter
+
+# Launch all UIs
+python ui_launcher.py all
+```
+
+### 2. Run the Demo
 ```bash
 python demo.py
 ```
@@ -111,12 +133,12 @@ This will:
 - Show trading workflow execution
 - Run backtesting on historical data
 
-### 2. Start Paper Trading
+### 3. Start Paper Trading
 ```bash
 python -m agentic_ai_system.main --mode live --duration 60
 ```
 
-### 3. Run Backtesting
+### 4. Run Backtesting
 ```bash
 python -m agentic_ai_system.main --mode backtest --start-date 2024-01-01 --end-date 2024-01-31
 ```
@@ -262,6 +284,13 @@ algorithmic_trading/
 │   ├── 📄 synthetic_data_generator.py # Test data generation
 │   └── 📄 logger_config.py        # Logging configuration
 │
+├── 🎨 ui/                         # User interface system
+│   ├── 📄 __init__.py            # UI package initialization
+│   ├── 📄 streamlit_app.py       # Streamlit web application
+│   ├── 📄 dash_app.py            # Dash enterprise dashboard
+│   ├── 📄 jupyter_widgets.py     # Jupyter interactive widgets
+│   └── 📄 websocket_server.py    # Real-time WebSocket server
+│
 ├── 🧪 tests/                      # Test suite
 │   ├── 📄 __init__.py
 │   ├── 📄 test_data_ingestion.py
@@ -293,6 +322,8 @@ algorithmic_trading/
 │
 ├── 📄 demo.py                     # Main demo script
 ├── 📄 finrl_demo.py              # FinRL-specific demo
+├── 📄 ui_launcher.py             # UI launcher script
+├── 📄 UI_SETUP.md                # UI setup documentation
 ├── 📄 DOCKER_HUB_SETUP.md        # Docker Hub documentation
 │
 └── 🐍 .venv/                     # Python virtual environment
@@ -361,6 +392,54 @@ risk:
   stop_loss: 0.02
   take_profit: 0.05
 ```
+
+## 🎨 User Interface System
+
+The project includes a comprehensive UI system with multiple interface options:
+
+### Available UIs
+
+#### **Streamlit UI** (Recommended for beginners)
+- **URL**: http://localhost:8501
+- **Features**: Interactive widgets, real-time data visualization, easy configuration
+- **Best for**: Data scientists, quick experiments, rapid prototyping
+
+#### **Dash UI** (Recommended for production)
+- **URL**: http://localhost:8050
+- **Features**: Enterprise-grade dashboards, advanced charts, professional styling
+- **Best for**: Production dashboards, real-time monitoring, complex analytics
+
+#### **Jupyter UI** (For research)
+- **URL**: http://localhost:8888
+- **Features**: Interactive notebooks, code execution, rich documentation
+- **Best for**: Research, experimentation, educational purposes
+
+#### **WebSocket API** (For developers)
+- **URL**: ws://localhost:8765
+- **Features**: Real-time data streaming, trading signals, portfolio updates
+- **Best for**: Real-time trading signals, live data streaming
+
+### Quick UI Launch
+```bash
+# Launch individual UIs
+python ui_launcher.py streamlit    # Streamlit UI
+python ui_launcher.py dash         # Dash UI
+python ui_launcher.py jupyter      # Jupyter Lab
+python ui_launcher.py websocket    # WebSocket server
+
+# Launch all UIs at once
+python ui_launcher.py all
+```
+
+### UI Features
+- **Real-time Data Visualization**: Live market data charts and indicators
+- **Portfolio Monitoring**: Real-time portfolio value and P&L tracking
+- **Trading Controls**: Start/stop trading, backtesting, risk management
+- **FinRL Training**: Interactive model training and evaluation
+- **Alpaca Integration**: Account management and order execution
+- **Configuration Management**: Easy parameter tuning and strategy setup
+
+For detailed UI documentation, see [UI_SETUP.md](UI_SETUP.md).
 
 ## 📈 Performance Monitoring
 
