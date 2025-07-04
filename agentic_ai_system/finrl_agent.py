@@ -237,7 +237,7 @@ class FinRLAgent:
             df['macd'] = self._calculate_macd(df['close'])
         
         # Fill NaN values
-        df = df.fillna(method='bfill').fillna(0)
+        df = df.bfill().fillna(0)
         
         return df
     

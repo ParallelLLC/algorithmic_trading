@@ -51,7 +51,7 @@ class SyntheticDataGenerator:
         elif frequency == '5min' or frequency == '5m':
             timestamps = pd.date_range(start=start_dt, end=end_dt, freq='5min')
         elif frequency == '1H' or frequency == '1h':
-            timestamps = pd.date_range(start=start_dt, end=end_dt, freq='1H')
+            timestamps = pd.date_range(start=start_dt, end=end_dt, freq='1h')
         elif frequency == '1D' or frequency == '1d':
             timestamps = pd.date_range(start=start_dt, end=end_dt, freq='1D')
         else:
