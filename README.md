@@ -256,6 +256,99 @@ result = agent.predict(
 5. **Order Execution**: Real-time order placement through Alpaca
 6. **Performance Tracking**: Continuous monitoring and logging
 
+## 📁 Project Directory Structure
+
+```
+algorithmic_trading/
+├── 📄 README.md                    # Project documentation
+├── 📄 LICENSE                      # Alpaca 2 License
+├── 📄 requirements.txt             # Python dependencies
+├── 📄 config.yaml                  # Main configuration file
+├── 📄 env.example                  # Environment variables template
+├── 📄 .gitignore                   # Git ignore rules
+├── 📄 pytest.ini                  # Test configuration
+│
+├── 🐳 Docker/
+│   ├── 📄 Dockerfile              # Container definition
+│   ├── 📄 docker-entrypoint.sh    # Container startup script
+│   ├── 📄 .dockerignore           # Docker ignore rules
+│   ├── 📄 docker-compose.yml      # Default compose file
+│   ├── 📄 docker-compose.dev.yml  # Development environment
+│   ├── 📄 docker-compose.prod.yml # Production environment
+│   └── 📄 docker-compose.hub.yml  # Docker Hub deployment
+│
+├── 🤖 agentic_ai_system/          # Core AI trading system
+│   ├── 📄 main.py                 # Main entry point
+│   ├── 📄 orchestrator.py         # System coordination
+│   ├── 📄 agent_base.py           # Base agent class
+│   ├── 📄 data_ingestion.py       # Market data processing
+│   ├── 📄 strategy_agent.py       # Trading strategy logic
+│   ├── 📄 execution_agent.py      # Order execution
+│   ├── 📄 finrl_agent.py          # FinRL reinforcement learning
+│   ├── 📄 alpaca_broker.py        # Alpaca API integration
+│   ├── 📄 synthetic_data_generator.py # Test data generation
+│   └── 📄 logger_config.py        # Logging configuration
+│
+├── 🧪 tests/                      # Test suite
+│   ├── 📄 __init__.py
+│   ├── 📄 test_data_ingestion.py
+│   ├── 📄 test_strategy_agent.py
+│   ├── 📄 test_execution_agent.py
+│   ├── 📄 test_finrl_agent.py
+│   ├── 📄 test_synthetic_data_generator.py
+│   └── 📄 test_integration.py
+│
+├── 📊 data/                       # Market data storage
+│   └── 📄 synthetic_market_data.csv
+│
+├── 🧠 models/                     # Trained AI models
+│   └── 📁 finrl_best/            # Best FinRL models
+│
+├── 📈 plots/                      # Generated charts/visualizations
+│
+├── 📝 logs/                       # System logs
+│   ├── 📄 trading_system.log
+│   ├── 📄 trading.log
+│   ├── 📄 performance.log
+│   ├── 📄 errors.log
+│   ├── 📁 finrl_tensorboard/     # FinRL training logs
+│   └── 📁 finrl_eval/            # Model evaluation logs
+│
+├── 🔧 scripts/                    # Utility scripts
+│   ├── 📄 docker-build.sh        # Docker build automation
+│   └── 📄 docker-hub-deploy.sh   # Docker Hub deployment
+│
+├── 📄 demo.py                     # Main demo script
+├── 📄 finrl_demo.py              # FinRL-specific demo
+├── 📄 DOCKER_HUB_SETUP.md        # Docker Hub documentation
+│
+└── 🐍 .venv/                     # Python virtual environment
+```
+
+### 🏗️ Architecture Overview
+
+#### **Core Components:**
+- **Data Layer**: Market data ingestion and preprocessing
+- **Strategy Layer**: Technical analysis and signal generation  
+- **AI Layer**: FinRL reinforcement learning agents
+- **Execution Layer**: Order management and broker integration
+- **Orchestration**: System coordination and workflow management
+
+#### **Key Features:**
+- **Modular Design**: Each component is independent and testable
+- **Docker Support**: Complete containerization for deployment
+- **Testing**: Comprehensive test suite for all components
+- **Logging**: Detailed logging for monitoring and debugging
+- **Configuration**: Centralized configuration management
+- **Documentation**: Extensive documentation and examples
+
+#### **Development Workflow:**
+1. **Data Ingestion** → Market data from Alpaca/CSV/synthetic sources
+2. **Strategy Generation** → Technical indicators and FinRL predictions
+3. **Risk Management** → Position sizing and portfolio protection
+4. **Order Execution** → Real-time trading through Alpaca
+5. **Performance Tracking** → Continuous monitoring and logging
+
 ## 🔧 Configuration
 
 ### Alpaca Settings
