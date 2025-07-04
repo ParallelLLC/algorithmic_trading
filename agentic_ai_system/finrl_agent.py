@@ -3,7 +3,7 @@ FinRL Agent for Algorithmic Trading
 
 This module provides a FinRL-based reinforcement learning agent that can be integrated
 with the existing algorithmic trading system. It supports various RL algorithms
-including PPO, A2C, DDPG, and TD3.
+including PPO, A2C, DDPG, and TD3, and can work with Alpaca broker for real trading.
 """
 
 import numpy as np
@@ -51,16 +51,31 @@ class TradingEnvironment(gym.Env):
     - Buy, sell, or hold positions
     - Use technical indicators for decision making
     - Manage portfolio value and risk
+    - Integrate with Alpaca broker for real trading
     """
     
-    def __init__(self, data: pd.DataFrame, initial_balance: float = 100000, 
-                 transaction_fee: float = 0.001, max_position: int = 100):
+    def __init__(self, data: pd.DataFrame, config: Dict[str, Any], 
+                 initial_balance: float = 100000, transaction_fee: float = 0.001, 
+                 max_position: int = 100, use_real_broker: bool = False):
         super().__init__()
         
         self.data = data
+        self.config = config
         self.initial_balance = initial_balance
         self.transaction_fee = transaction_fee
         self.max_position = max_position
+        self.use_real_broker = use_real_broker
+        
+        # Initialize Alpaca broker if using real trading
+        self.alpaca_broker = None
+        if use_real_broker:
+            try:
+                from .alpaca_broker import AlpacaBroker
+                self.alpaca_broker = AlpacaBroker(config)
+                logger.info("Alpaca broker initialized for FinRL environment")
+            except Exception as e:
+                logger.error(f"Failed to initialize Alpaca broker: {e}")
+                self.use_real_broker = False
         
         # Reset state
         self.reset()
@@ -128,27 +143,61 @@ class TradingEnvironment(gym.Env):
         if action == 0:  # Sell
             if self.position > 0:
                 shares_to_sell = min(self.position, self.max_position)
-                sell_value = shares_to_sell * current_price * (1 - self.transaction_fee)
-                self.balance += sell_value
-                self.position -= shares_to_sell
+                
+                if self.use_real_broker and self.alpaca_broker:
+                    # Execute real order with Alpaca
+                    result = self.alpaca_broker.place_market_order(
+                        symbol=self.config['trading']['symbol'],
+                        quantity=shares_to_sell,
+                        side='sell'
+                    )
+                    
+                    if result['success']:
+                        sell_value = result['filled_avg_price'] * shares_to_sell * (1 - self.transaction_fee)
+                        self.balance += sell_value
+                        self.position -= shares_to_sell
+                        logger.info(f"Real sell order executed: {result['order_id']}")
+                    else:
+                        logger.warning(f"Real sell order failed: {result['error']}")
+                else:
+                    # Simulate order execution
+                    sell_value = shares_to_sell * current_price * (1 - self.transaction_fee)
+                    self.balance += sell_value
+                    self.position -= shares_to_sell
+                    
         elif action == 2:  # Buy
             if self.balance > 0:
                 max_shares = min(
                     int(self.balance / current_price),
                     self.max_position - self.position
                 )
+                
                 if max_shares > 0:
-                    buy_value = max_shares * current_price * (1 + self.transaction_fee)
-                    self.balance -= buy_value
-                    self.position += max_shares
+                    if self.use_real_broker and self.alpaca_broker:
+                        # Execute real order with Alpaca
+                        result = self.alpaca_broker.place_market_order(
+                            symbol=self.config['trading']['symbol'],
+                            quantity=max_shares,
+                            side='buy'
+                        )
+                        
+                        if result['success']:
+                            buy_value = result['filled_avg_price'] * max_shares * (1 + self.transaction_fee)
+                            self.balance -= buy_value
+                            self.position += max_shares
+                            logger.info(f"Real buy order executed: {result['order_id']}")
+                        else:
+                            logger.warning(f"Real buy order failed: {result['error']}")
+                    else:
+                        # Simulate order execution
+                        buy_value = max_shares * current_price * (1 + self.transaction_fee)
+                        self.balance -= buy_value
+                        self.position += max_shares
         
         # Update portfolio value
         self.previous_portfolio_value = self.portfolio_value
         self.portfolio_value = self._calculate_portfolio_value()
         self.total_return = (self.portfolio_value - self.initial_balance) / self.initial_balance
-        
-        # Calculate reward
-        reward = self._calculate_reward()
         
         # Move to next step
         self.current_step += 1
@@ -156,19 +205,22 @@ class TradingEnvironment(gym.Env):
         # Check if episode is done
         done = self.current_step >= len(self.data) - 1
         
-        # Get observation
+        # Get observation for next step
         if not done:
             observation = self._get_features(self.data.iloc[self.current_step])
         else:
-            # Use last available data for final observation
             observation = self._get_features(self.data.iloc[-1])
         
+        # Calculate reward
+        reward = self._calculate_reward()
+        
+        # Additional info
         info = {
-            'balance': self.balance,
-            'position': self.position,
             'portfolio_value': self.portfolio_value,
             'total_return': self.total_return,
-            'current_price': current_price
+            'position': self.position,
+            'balance': self.balance,
+            'step': self.current_step
         }
         
         return observation, reward, done, False, info
@@ -184,15 +236,10 @@ class TradingEnvironment(gym.Env):
         self.previous_portfolio_value = self.initial_balance
         self.total_return = 0.0
         
-        observation = self._get_features(self.data.iloc[self.current_step])
-        info = {
-            'balance': self.balance,
-            'position': self.position,
-            'portfolio_value': self.portfolio_value,
-            'total_return': self.total_return
-        }
+        # Get initial observation
+        observation = self._get_features(self.data.iloc[0])
         
-        return observation, info
+        return observation, {}
 
 
 class FinRLAgent:
@@ -209,13 +256,16 @@ class FinRLAgent:
         
         logger.info(f"Initializing FinRL agent with algorithm: {config.algorithm}")
     
-    def create_environment(self, data: pd.DataFrame, initial_balance: float = 100000) -> TradingEnvironment:
+    def create_environment(self, data: pd.DataFrame, config: Dict[str, Any], 
+                          initial_balance: float = 100000, use_real_broker: bool = False) -> TradingEnvironment:
         """Create trading environment from market data"""
         return TradingEnvironment(
             data=data,
+            config=config,
             initial_balance=initial_balance,
             transaction_fee=0.001,
-            max_position=100
+            max_position=100,
+            use_real_broker=use_real_broker
         )
     
     def prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -241,14 +291,216 @@ class FinRLAgent:
         
         return df
     
+    def train(self, data: pd.DataFrame, config: Dict[str, Any], 
+              total_timesteps: int = 100000, use_real_broker: bool = False) -> Dict[str, Any]:
+        """
+        Train the FinRL agent
+        
+        Args:
+            data: Market data for training
+            config: Configuration dictionary
+            total_timesteps: Number of timesteps for training
+            use_real_broker: Whether to use real Alpaca broker during training
+            
+        Returns:
+            Training results dictionary
+        """
+        try:
+            # Prepare data
+            prepared_data = self.prepare_data(data)
+            
+            # Create environment
+            self.env = self.create_environment(prepared_data, config, use_real_broker=use_real_broker)
+            
+            # Create evaluation environment (without real broker)
+            eval_data = prepared_data.copy()
+            self.eval_env = self.create_environment(eval_data, config, use_real_broker=False)
+            
+            # Create callback for evaluation
+            self.callback = EvalCallback(
+                self.eval_env,
+                best_model_save_path=config['finrl']['training']['model_save_path'],
+                log_path=config['finrl']['tensorboard_log'],
+                eval_freq=config['finrl']['training']['eval_freq'],
+                deterministic=True,
+                render=False
+            )
+            
+            # Initialize model based on algorithm
+            if self.config.algorithm == "PPO":
+                self.model = PPO(
+                    "MlpPolicy",
+                    self.env,
+                    learning_rate=self.config.learning_rate,
+                    batch_size=self.config.batch_size,
+                    buffer_size=self.config.buffer_size,
+                    learning_starts=self.config.learning_starts,
+                    gamma=self.config.gamma,
+                    train_freq=self.config.train_freq,
+                    gradient_steps=self.config.gradient_steps,
+                    verbose=self.config.verbose,
+                    tensorboard_log=self.config.tensorboard_log
+                )
+            elif self.config.algorithm == "A2C":
+                self.model = A2C(
+                    "MlpPolicy",
+                    self.env,
+                    learning_rate=self.config.learning_rate,
+                    gamma=self.config.gamma,
+                    verbose=self.config.verbose,
+                    tensorboard_log=self.config.tensorboard_log
+                )
+            elif self.config.algorithm == "DDPG":
+                self.model = DDPG(
+                    "MlpPolicy",
+                    self.env,
+                    learning_rate=self.config.learning_rate,
+                    buffer_size=self.config.buffer_size,
+                    learning_starts=self.config.learning_starts,
+                    gamma=self.config.gamma,
+                    tau=self.config.tau,
+                    train_freq=self.config.train_freq,
+                    gradient_steps=self.config.gradient_steps,
+                    verbose=self.config.verbose,
+                    tensorboard_log=self.config.tensorboard_log
+                )
+            elif self.config.algorithm == "TD3":
+                self.model = TD3(
+                    "MlpPolicy",
+                    self.env,
+                    learning_rate=self.config.learning_rate,
+                    buffer_size=self.config.buffer_size,
+                    learning_starts=self.config.learning_starts,
+                    gamma=self.config.gamma,
+                    tau=self.config.tau,
+                    train_freq=self.config.train_freq,
+                    gradient_steps=self.config.gradient_steps,
+                    verbose=self.config.verbose,
+                    tensorboard_log=self.config.tensorboard_log
+                )
+            else:
+                raise ValueError(f"Unsupported algorithm: {self.config.algorithm}")
+            
+            # Train the model
+            logger.info(f"Starting training with {total_timesteps} timesteps")
+            self.model.learn(
+                total_timesteps=total_timesteps,
+                callback=self.callback,
+                progress_bar=True
+            )
+            
+            # Save the final model
+            model_path = f"{config['finrl']['training']['model_save_path']}/final_model"
+            self.model.save(model_path)
+            logger.info(f"Training completed. Model saved to {model_path}")
+            
+            return {
+                'success': True,
+                'algorithm': self.config.algorithm,
+                'total_timesteps': total_timesteps,
+                'model_path': model_path
+            }
+            
+        except Exception as e:
+            logger.error(f"Error during training: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def predict(self, data: pd.DataFrame, config: Dict[str, Any], 
+                use_real_broker: bool = False) -> Dict[str, Any]:
+        """
+        Make predictions using the trained model
+        
+        Args:
+            data: Market data for prediction
+            config: Configuration dictionary
+            use_real_broker: Whether to use real Alpaca broker for execution
+            
+        Returns:
+            Prediction results dictionary
+        """
+        try:
+            if self.model is None:
+                # Try to load model
+                model_path = config['finrl']['inference']['model_path']
+                if config['finrl']['inference']['use_trained_model']:
+                    self.model = self._load_model(model_path, config)
+                    if self.model is None:
+                        return {'success': False, 'error': 'No trained model available'}
+                else:
+                    return {'success': False, 'error': 'No model available for prediction'}
+            
+            # Prepare data
+            prepared_data = self.prepare_data(data)
+            
+            # Create environment
+            env = self.create_environment(prepared_data, config, use_real_broker=use_real_broker)
+            
+            # Run prediction
+            obs, _ = env.reset()
+            done = False
+            actions = []
+            rewards = []
+            portfolio_values = []
+            
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, done, _, info = env.step(action)
+                
+                actions.append(action)
+                rewards.append(reward)
+                portfolio_values.append(info['portfolio_value'])
+            
+            # Calculate final metrics
+            initial_value = config['trading']['capital']
+            final_value = portfolio_values[-1] if portfolio_values else initial_value
+            total_return = (final_value - initial_value) / initial_value
+            
+            return {
+                'success': True,
+                'actions': actions,
+                'rewards': rewards,
+                'portfolio_values': portfolio_values,
+                'initial_value': initial_value,
+                'final_value': final_value,
+                'total_return': total_return,
+                'total_trades': len([a for a in actions if a != 1])  # Count non-hold actions
+            }
+            
+        except Exception as e:
+            logger.error(f"Error during prediction: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _load_model(self, model_path: str, config: Dict[str, Any]):
+        """Load a trained model"""
+        try:
+            if config['finrl']['algorithm'] == "PPO":
+                return PPO.load(model_path)
+            elif config['finrl']['algorithm'] == "A2C":
+                return A2C.load(model_path)
+            elif config['finrl']['algorithm'] == "DDPG":
+                return DDPG.load(model_path)
+            elif config['finrl']['algorithm'] == "TD3":
+                return TD3.load(model_path)
+            else:
+                logger.error(f"Unsupported algorithm for model loading: {config['finrl']['algorithm']}")
+                return None
+        except Exception as e:
+            logger.error(f"Error loading model: {e}")
+            return None
+    
     def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
         """Calculate RSI indicator"""
         delta = prices.diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
         rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
+        return 100 - (100 / (1 + rs))
     
     def _calculate_bollinger_bands(self, prices: pd.Series, period: int = 20, std_dev: int = 2) -> Tuple[pd.Series, pd.Series]:
         """Calculate Bollinger Bands"""
@@ -262,186 +514,5 @@ class FinRLAgent:
         """Calculate MACD indicator"""
         ema_fast = prices.ewm(span=fast).mean()
         ema_slow = prices.ewm(span=slow).mean()
-        macd_line = ema_fast - ema_slow
-        return macd_line
-    
-    def train(self, data: pd.DataFrame, total_timesteps: int = 100000, 
-              eval_freq: int = 10000, eval_data: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
-        """Train the FinRL agent"""
-        
-        logger.info("Starting FinRL agent training")
-        
-        # Prepare data
-        train_data = self.prepare_data(data)
-        
-        # Create training environment
-        self.env = DummyVecEnv([lambda: self.create_environment(train_data)])
-        
-        # Create evaluation environment if provided
-        if eval_data is not None:
-            eval_data = self.prepare_data(eval_data)
-            self.eval_env = DummyVecEnv([lambda: self.create_environment(eval_data)])
-            self.callback = EvalCallback(
-                self.eval_env,
-                best_model_save_path="models/finrl_best/",
-                log_path="logs/finrl_eval/",
-                eval_freq=eval_freq,
-                deterministic=True,
-                render=False
-            )
-        
-        # Initialize model based on algorithm
-        if self.config.algorithm == "PPO":
-            self.model = PPO(
-                "MlpPolicy",
-                self.env,
-                learning_rate=self.config.learning_rate,
-                batch_size=self.config.batch_size,
-                gamma=self.config.gamma,
-                verbose=self.config.verbose,
-                tensorboard_log=self.config.tensorboard_log
-            )
-        elif self.config.algorithm == "A2C":
-            self.model = A2C(
-                "MlpPolicy",
-                self.env,
-                learning_rate=self.config.learning_rate,
-                gamma=self.config.gamma,
-                verbose=self.config.verbose,
-                tensorboard_log=self.config.tensorboard_log
-            )
-        elif self.config.algorithm == "DDPG":
-            self.model = DDPG(
-                "MlpPolicy",
-                self.env,
-                learning_rate=self.config.learning_rate,
-                buffer_size=self.config.buffer_size,
-                learning_starts=self.config.learning_starts,
-                gamma=self.config.gamma,
-                tau=self.config.tau,
-                train_freq=self.config.train_freq,
-                gradient_steps=self.config.gradient_steps,
-                verbose=self.config.verbose,
-                tensorboard_log=self.config.tensorboard_log
-            )
-        elif self.config.algorithm == "TD3":
-            self.model = TD3(
-                "MlpPolicy",
-                self.env,
-                learning_rate=self.config.learning_rate,
-                buffer_size=self.config.buffer_size,
-                learning_starts=self.config.learning_starts,
-                gamma=self.config.gamma,
-                tau=self.config.tau,
-                train_freq=self.config.train_freq,
-                gradient_steps=self.config.gradient_steps,
-                target_update_interval=self.config.target_update_interval,
-                verbose=self.config.verbose,
-                tensorboard_log=self.config.tensorboard_log
-            )
-        else:
-            raise ValueError(f"Unsupported algorithm: {self.config.algorithm}")
-        
-        # Train the model
-        callbacks = [self.callback] if self.callback else None
-        self.model.learn(
-            total_timesteps=total_timesteps,
-            callback=callbacks
-        )
-        
-        logger.info("FinRL agent training completed")
-        
-        return {
-            'algorithm': self.config.algorithm,
-            'total_timesteps': total_timesteps,
-            'model_path': f"models/finrl_{self.config.algorithm.lower()}"
-        }
-    
-    def predict(self, data: pd.DataFrame) -> List[int]:
-        """Generate trading predictions using the trained model"""
-        if self.model is None:
-            raise ValueError("Model not trained. Call train() first.")
-        
-        # Prepare data
-        test_data = self.prepare_data(data)
-        
-        # Create test environment
-        test_env = self.create_environment(test_data)
-        
-        predictions = []
-        obs, _ = test_env.reset()
-        
-        done = False
-        while not done:
-            action, _ = self.model.predict(obs, deterministic=True)
-            predictions.append(action)
-            obs, _, done, _, _ = test_env.step(action)
-        
-        return predictions
-    
-    def evaluate(self, data: pd.DataFrame) -> Dict[str, float]:
-        """Evaluate the trained model on test data"""
-        if self.model is None:
-            raise ValueError("Model not trained. Call train() first.")
-        
-        # Prepare data
-        test_data = self.prepare_data(data)
-        
-        # Create test environment
-        test_env = self.create_environment(test_data)
-        
-        obs, _ = test_env.reset()
-        done = False
-        total_reward = 0
-        steps = 0
-        
-        while not done:
-            action, _ = self.model.predict(obs, deterministic=True)
-            obs, reward, done, _, info = test_env.step(action)
-            total_reward += reward
-            steps += 1
-        
-        # Calculate metrics
-        final_portfolio_value = info['portfolio_value']
-        initial_balance = test_env.initial_balance
-        total_return = (final_portfolio_value - initial_balance) / initial_balance
-        
-        return {
-            'total_reward': total_reward,
-            'total_return': total_return,
-            'final_portfolio_value': final_portfolio_value,
-            'steps': steps,
-            'sharpe_ratio': total_reward / steps if steps > 0 else 0
-        }
-    
-    def save_model(self, path: str):
-        """Save the trained model"""
-        if self.model is None:
-            raise ValueError("No model to save. Train the model first.")
-        
-        self.model.save(path)
-        logger.info(f"Model saved to {path}")
-    
-    def load_model(self, path: str):
-        """Load a trained model"""
-        if self.config.algorithm == "PPO":
-            self.model = PPO.load(path)
-        elif self.config.algorithm == "A2C":
-            self.model = A2C.load(path)
-        elif self.config.algorithm == "DDPG":
-            self.model = DDPG.load(path)
-        elif self.config.algorithm == "TD3":
-            self.model = TD3.load(path)
-        else:
-            raise ValueError(f"Unsupported algorithm: {self.config.algorithm}")
-        
-        logger.info(f"Model loaded from {path}")
-
-
-def create_finrl_agent_from_config(config_path: str) -> FinRLAgent:
-    """Create FinRL agent from configuration file"""
-    with open(config_path, 'r') as file:
-        config_data = yaml.safe_load(file)
-    
-    finrl_config = FinRLConfig(**config_data.get('finrl', {}))
-    return FinRLAgent(finrl_config) 
+        macd = ema_fast - ema_slow
+        return macd 

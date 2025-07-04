@@ -13,8 +13,21 @@ risk:
   max_drawdown: 0.05
 
 execution:
-  broker_api: 'paper'
+  broker_api: 'paper'  # Options: 'paper', 'alpaca_paper', 'alpaca_live'
   order_size: 10
+  delay_ms: 100
+  success_rate: 0.95
+
+# Alpaca configuration
+alpaca:
+  api_key: ''  # Set via environment variable ALPACA_API_KEY
+  secret_key: ''  # Set via environment variable ALPACA_SECRET_KEY
+  paper_trading: true  # Use paper trading by default
+  base_url: 'https://paper-api.alpaca.markets'  # Paper trading URL
+  live_url: 'https://api.alpaca.markets'  # Live trading URL
+  data_url: 'https://data.alpaca.markets'  # Market data URL
+  websocket_url: 'wss://stream.data.alpaca.markets/v2/iex'  # WebSocket URL
+  account_type: 'paper'  # 'paper' or 'live'
 
 # Synthetic data generation settings
 synthetic_data:

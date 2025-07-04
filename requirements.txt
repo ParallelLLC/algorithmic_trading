@@ -13,3 +13,7 @@ gymnasium
 tensorboard
 torch
 opencv-python-headless
+alpaca-py
+python-dotenv
+requests
+websocket-client

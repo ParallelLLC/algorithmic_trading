@@ -25,224 +25,85 @@ library_name: algorithmic-trading
 paperswithcode_id: null
 ---
 
-# Algorithmic Trading System
+# Algorithmic Trading System with FinRL and Alpaca Integration
 
-A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, extensive testing capabilities, FinRL reinforcement learning integration, and full Docker support.
+A sophisticated algorithmic trading system that combines reinforcement learning (FinRL) with real-time market data and order execution through Alpaca Markets. This system supports both paper trading and live trading with advanced risk management and technical analysis.
 
-## Features
+## 🚀 Features
 
 ### Core Trading System
-- **Agent-based Architecture**: Modular design with separate strategy and execution agents
-- **Technical Analysis**: Built-in technical indicators (SMA, RSI, Bollinger Bands, MACD)
-- **Risk Management**: Position sizing and drawdown limits
-- **Order Execution**: Simulated broker integration with realistic execution delays
+- **Multi-source Data Ingestion**: CSV files, Alpaca Markets API, and synthetic data generation
+- **Technical Analysis**: 20+ technical indicators including RSI, MACD, Bollinger Bands, and more
+- **Risk Management**: Position sizing, drawdown limits, and portfolio protection
+- **Real-time Execution**: Live order placement and portfolio monitoring
 
 ### FinRL Reinforcement Learning
-- **Multiple RL Algorithms**: Support for PPO, A2C, DDPG, and TD3
+- **Multiple Algorithms**: PPO, A2C, DDPG, and TD3 support
 - **Custom Trading Environment**: Gymnasium-compatible environment for RL training
-- **Technical Indicators Integration**: Automatic calculation and inclusion of technical indicators
-- **Portfolio Management**: Realistic portfolio simulation with transaction costs
-- **Model Persistence**: Save and load trained models for inference
-- **TensorBoard Integration**: Training progress visualization and monitoring
-- **Comprehensive Evaluation**: Performance metrics including Sharpe ratio and total returns
+- **Real-time Integration**: Can execute real trades during training and inference
+- **Model Persistence**: Save and load trained models for consistent performance
 
-### Docker Integration
-- **Multi-Environment Support**: Development, production, and testing environments
-- **Container Orchestration**: Docker Compose for easy service management
-- **Monitoring Stack**: Prometheus and Grafana for system monitoring
-- **Development Tools**: Jupyter Lab integration for interactive development
-- **Automated Testing**: Containerized test execution with coverage reporting
-- **Resource Management**: CPU and memory limits for production deployment
-- **Health Checks**: Built-in health monitoring for all services
-- **Backup Services**: Automated backup and data persistence
+### Alpaca Broker Integration
+- **Paper Trading**: Risk-free testing with virtual money
+- **Live Trading**: Real market execution (use with caution!)
+- **Market Data**: Real-time and historical data from Alpaca
+- **Account Management**: Portfolio monitoring and position tracking
+- **Order Types**: Market orders, limit orders, and order cancellation
 
-### Synthetic Data Generation
-- **Realistic Market Data**: Generate OHLCV data using geometric Brownian motion
-- **Multiple Frequencies**: Support for 1min, 5min, 1H, and 1D data
-- **Market Scenarios**: Normal, volatile, trending, and crash market conditions
-- **Tick Data**: High-frequency tick data generation for testing
-- **Configurable Parameters**: Volatility, trend, noise levels, and base prices
+### Advanced Features
+- **Docker Support**: Containerized deployment for consistency
+- **Comprehensive Logging**: Detailed logs for debugging and performance analysis
+- **Backtesting Engine**: Historical performance evaluation
+- **Live Trading Simulation**: Real-time trading with configurable duration
+- **Performance Metrics**: Returns, Sharpe ratio, drawdown analysis
 
-### Comprehensive Logging
-- **Multi-level Logging**: Console and file-based logging
-- **Rotating Log Files**: Automatic log rotation with size limits
-- **Specialized Loggers**: Separate loggers for trading, performance, and errors
-- **Structured Logging**: Detailed log messages with timestamps and context
+## 📋 Prerequisites
 
-### Testing Framework
-- **Unit Tests**: Comprehensive tests for all components
-- **Integration Tests**: End-to-end workflow testing
-- **Test Coverage**: Code coverage reporting with HTML and XML outputs
-- **Mock Testing**: Isolated testing with mocked dependencies
+- Python 3.8+
+- Alpaca Markets account (free paper trading available)
+- Docker (optional, for containerized deployment)
 
-## Installation
+## 🛠️ Installation
 
-### Option 1: Docker (Recommended)
-
-1. Clone the repository:
+### 1. Clone the Repository
 ```bash
-git clone https://huggingface.co/ParallelLLC/algorithmic_trading
+git clone <repository-url>
 cd algorithmic_trading
 ```
 
-2. Build and run with Docker:
-```bash
-# Build the image
-docker build -t algorithmic-trading .
-
-# Run the trading system
-docker run -p 8000:8000 algorithmic-trading
-```
-
-### Option 2: Local Installation
-
-1. Clone the repository:
-```bash
-git clone https://huggingface.co/esalguero/algorithmic_trading
-cd algorithmic_trading
-```
-
-2. Install dependencies:
+### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-## Docker Usage
-
-### Quick Start
-
+### 3. Set Up Alpaca API Credentials
+Create a `.env` file in the project root:
 ```bash
-# Build and start development environment
-./scripts/docker-build.sh dev
-
-# Build and start production environment
-./scripts/docker-build.sh prod
-
-# Run tests in Docker
-./scripts/docker-build.sh test
-
-# Stop all containers
-./scripts/docker-build.sh stop
+cp env.example .env
 ```
 
-### Development Environment
+Edit `.env` with your Alpaca credentials:
+```env
+# Get these from https://app.alpaca.markets/paper/dashboard/overview
+ALPACA_API_KEY=your_paper_api_key_here
+ALPACA_SECRET_KEY=your_paper_secret_key_here
 
-```bash
-# Start development environment with Jupyter Lab
-docker-compose -f docker-compose.dev.yml up -d
-
-# Access services:
-# - Jupyter Lab: http://localhost:8888
-# - Trading System: http://localhost:8000
-# - TensorBoard: http://localhost:6006
+# For live trading (use with caution!)
+# ALPACA_API_KEY=your_live_api_key_here
+# ALPACA_SECRET_KEY=your_live_secret_key_here
 ```
 
-### Production Environment
-
-```bash
-# Start production environment with monitoring
-docker-compose -f docker-compose.prod.yml up -d
-
-# Access services:
-# - Trading System: http://localhost:8000
-# - Grafana: http://localhost:3000 (admin/admin)
-# - Prometheus: http://localhost:9090
-```
-
-### Custom Commands
-
-```bash
-# Run a specific command in the container
-./scripts/docker-build.sh run 'python demo.py'
-
-# Run FinRL training
-./scripts/docker-build.sh run 'python finrl_demo.py'
-
-# Run backtesting
-./scripts/docker-build.sh run 'python -m agentic_ai_system.main --mode backtest'
-
-# Show logs
-./scripts/docker-build.sh logs trading-system
-```
-
-### Docker Compose Services
-
-#### Development (`docker-compose.dev.yml`)
-- **trading-dev**: Jupyter Lab environment with hot reload
-- **finrl-training-dev**: FinRL training with TensorBoard
-- **testing**: Automated test execution
-- **linting**: Code quality checks
-
-#### Production (`docker-compose.prod.yml`)
-- **trading-system**: Main trading system with resource limits
-- **monitoring**: Prometheus metrics collection
-- **grafana**: Data visualization dashboard
-- **backup**: Automated backup service
-
-#### Standard (`docker-compose.yml`)
-- **trading-system**: Basic trading system
-- **finrl-training**: FinRL training service
-- **backtesting**: Backtesting service
-- **development**: Development environment
-
-### Docker Features
-
-#### Health Checks
-All services include health checks to ensure system reliability:
-```yaml
-healthcheck:
-  test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 40s
-```
-
-#### Resource Management
-Production services include resource limits:
-```yaml
-deploy:
-  resources:
-    limits:
-      memory: 2G
-      cpus: '1.0'
-    reservations:
-      memory: 512M
-      cpus: '0.5'
-```
-
-#### Volume Management
-Persistent data storage with named volumes:
-- `trading_data`: Market data and configuration
-- `trading_logs`: System logs
-- `trading_models`: Trained models
-- `prometheus_data`: Monitoring metrics
-- `grafana_data`: Dashboard configurations
-
-#### Logging
-Structured logging with rotation:
-```yaml
-logging:
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"
-```
-
-## Configuration
-
-The system is configured via `config.yaml`:
-
+### 4. Configure Trading Parameters
+Edit `config.yaml` to customize your trading strategy:
 ```yaml
 # Data source configuration
 data_source:
-  type: 'synthetic'  # or 'csv'
-  path: 'data/market_data.csv'
+  type: 'alpaca'  # Options: 'alpaca', 'csv', 'synthetic'
 
 # Trading parameters
 trading:
   symbol: 'AAPL'
-  timeframe: '1min'
+  timeframe: '1m'
   capital: 100000
 
 # Risk management
@@ -250,39 +111,172 @@ risk:
   max_position: 100
   max_drawdown: 0.05
 
-# Order execution
+# Execution settings
 execution:
-  broker_api: 'paper'
+  broker_api: 'alpaca_paper'  # Options: 'paper', 'alpaca_paper', 'alpaca_live'
   order_size: 10
-  delay_ms: 100
-  success_rate: 0.95
-
-# Synthetic data generation
-synthetic_data:
-  base_price: 150.0
-  volatility: 0.02
-  trend: 0.001
-  noise_level: 0.005
-  generate_data: true
-  data_path: 'data/synthetic_market_data.csv'
-
-# Logging configuration
-logging:
-  log_level: 'INFO'
-  log_dir: 'logs'
-  enable_console: true
-  enable_file: true
-  max_file_size_mb: 10
-  backup_count: 5
 
 # FinRL configuration
 finrl:
   algorithm: 'PPO'
   learning_rate: 0.0003
+  training:
+    total_timesteps: 100000
+    save_best_model: true
+```
+
+## 🚀 Quick Start
+
+### 1. Run the Demo
+```bash
+python demo.py
+```
+
+This will:
+- Test data ingestion from Alpaca
+- Demonstrate FinRL training
+- Show trading workflow execution
+- Run backtesting on historical data
+
+### 2. Start Paper Trading
+```bash
+python -m agentic_ai_system.main --mode live --duration 60
+```
+
+### 3. Run Backtesting
+```bash
+python -m agentic_ai_system.main --mode backtest --start-date 2024-01-01 --end-date 2024-01-31
+```
+
+## 📊 Usage Examples
+
+### Basic Trading Workflow
+```python
+from agentic_ai_system.main import load_config
+from agentic_ai_system.orchestrator import run
+
+# Load configuration
+config = load_config()
+
+# Run single trading cycle
+result = run(config)
+print(f"Trading result: {result}")
+```
+
+### FinRL Training
+```python
+from agentic_ai_system.finrl_agent import FinRLAgent, FinRLConfig
+from agentic_ai_system.data_ingestion import load_data
+
+# Load data and configuration
+config = load_config()
+data = load_data(config)
+
+# Initialize FinRL agent
+finrl_config = FinRLConfig(algorithm='PPO', learning_rate=0.0003)
+agent = FinRLAgent(finrl_config)
+
+# Train the agent
+result = agent.train(
+    data=data,
+    config=config,
+    total_timesteps=100000,
+    use_real_broker=False  # Use simulation for training
+)
+
+print(f"Training completed: {result}")
+```
+
+### Alpaca Integration
+```python
+from agentic_ai_system.alpaca_broker import AlpacaBroker
+
+# Initialize Alpaca broker
+config = load_config()
+broker = AlpacaBroker(config)
+
+# Get account information
+account_info = broker.get_account_info()
+print(f"Account balance: ${account_info['buying_power']:,.2f}")
+
+# Place a market order
+result = broker.place_market_order(
+    symbol='AAPL',
+    quantity=10,
+    side='buy'
+)
+print(f"Order result: {result}")
+```
+
+### Real-time Trading with FinRL
+```python
+from agentic_ai_system.finrl_agent import FinRLAgent
+
+# Load trained model
+agent = FinRLAgent(FinRLConfig())
+agent.model = agent._load_model('models/finrl_best/best_model', config)
+
+# Make predictions with real execution
+result = agent.predict(
+    data=recent_data,
+    config=config,
+    use_real_broker=True  # Execute real trades!
+)
+```
+
+## 🏗️ Architecture
+
+### System Components
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Data Sources  │    │  Strategy Agent │    │ Execution Agent │
+│                 │    │                 │    │                 │
+│ • Alpaca API    │───▶│ • Technical     │───▶│ • Alpaca Broker │
+│ • CSV Files     │    │   Indicators    │    │ • Order Mgmt    │
+│ • Synthetic     │    │ • Signal Gen    │    │ • Risk Control  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Data Ingestion │    │   FinRL Agent   │    │   Portfolio     │
+│                 │    │                 │    │   Management    │
+│ • Validation    │    │ • PPO/A2C/DDPG  │    │ • Positions     │
+│ • Indicators    │    │ • Training      │    │ • P&L Tracking  │
+│ • Preprocessing │    │ • Prediction    │    │ • Risk Metrics  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Data Flow
+
+1. **Data Ingestion**: Market data from Alpaca, CSV, or synthetic sources
+2. **Preprocessing**: Technical indicators, data validation, and feature engineering
+3. **Strategy Generation**: Traditional technical analysis or FinRL predictions
+4. **Risk Management**: Position sizing and portfolio protection
+5. **Order Execution**: Real-time order placement through Alpaca
+6. **Performance Tracking**: Continuous monitoring and logging
+
+## 🔧 Configuration
+
+### Alpaca Settings
+```yaml
+alpaca:
+  api_key: ''  # Set via environment variable
+  secret_key: ''  # Set via environment variable
+  paper_trading: true
+  base_url: 'https://paper-api.alpaca.markets'
+  live_url: 'https://api.alpaca.markets'
+  data_url: 'https://data.alpaca.markets'
+  account_type: 'paper'  # 'paper' or 'live'
+```
+
+### FinRL Settings
+```yaml
+finrl:
+  algorithm: 'PPO'  # PPO, A2C, DDPG, TD3
+  learning_rate: 0.0003
   batch_size: 64
   buffer_size: 1000000
-  gamma: 0.99
-  tensorboard_log: 'logs/finrl_tensorboard'
   training:
     total_timesteps: 100000
     eval_freq: 10000
@@ -293,243 +287,133 @@ finrl:
     model_path: 'models/finrl_best/best_model'
 ```
 
-## Usage
+### Risk Management
+```yaml
+risk:
+  max_position: 100
+  max_drawdown: 0.05
+  stop_loss: 0.02
+  take_profit: 0.05
+```
 
-### Standard Trading Mode
+## 📈 Performance Monitoring
+
+### Logging
+The system provides comprehensive logging:
+- `logs/trading_system.log`: Main system logs
+- `logs/trading.log`: Trading-specific events
+- `logs/performance.log`: Performance metrics
+- `logs/finrl_tensorboard/`: FinRL training logs
+
+### Metrics Tracked
+- Portfolio value and returns
+- Trade execution statistics
+- Risk metrics (Sharpe ratio, drawdown)
+- FinRL training progress
+- Alpaca account status
+
+### Real-time Monitoring
+```python
+# Get account information
+account_info = broker.get_account_info()
+print(f"Portfolio Value: ${account_info['portfolio_value']:,.2f}")
+
+# Get current positions
+positions = broker.get_positions()
+for pos in positions:
+    print(f"{pos['symbol']}: {pos['quantity']} shares")
+
+# Check market status
+market_open = broker.is_market_open()
+print(f"Market: {'OPEN' if market_open else 'CLOSED'}")
+```
+
+## 🐳 Docker Deployment
+
+### Build and Run
 ```bash
-python -m agentic_ai_system.main
-```
+# Build the image
+docker build -t algorithmic-trading .
 
-### Backtest Mode
-```bash
-python -m agentic_ai_system.main --mode backtest --start-date 2024-01-01 --end-date 2024-12-31
-```
+# Run with environment variables
+docker run -it --env-file .env algorithmic-trading
 
-### Live Trading Mode
-```bash
-python -m agentic_ai_system.main --mode live --duration 60
-```
-
-### Custom Configuration
-```bash
-python -m agentic_ai_system.main --config custom_config.yaml
-```
-
-## Running Tests
-
-### All Tests
-```bash
-pytest
-```
-
-### Unit Tests Only
-```bash
-pytest -m unit
-```
-
-### Integration Tests Only
-```bash
-pytest -m integration
-```
-
-### With Coverage Report
-```bash
-pytest --cov=agentic_ai_system --cov-report=html
-```
-
-### Specific Test File
-```bash
-pytest tests/test_synthetic_data_generator.py
-```
-
-### Docker Testing
-```bash
-# Run all tests in Docker
-./scripts/docker-build.sh test
-
-# Run tests with coverage
-docker run --rm -v $(pwd):/app algorithmic-trading:latest pytest --cov=agentic_ai_system --cov-report=html
-```
-
-## System Architecture
-
-### Components
-
-1. **SyntheticDataGenerator**: Generates realistic market data for testing
-2. **DataIngestion**: Loads and validates market data from various sources
-3. **StrategyAgent**: Analyzes market data and generates trading signals
-4. **ExecutionAgent**: Executes trading orders with broker simulation
-5. **Orchestrator**: Coordinates the entire trading workflow
-6. **LoggerConfig**: Manages comprehensive logging throughout the system
-7. **FinRLAgent**: Reinforcement learning agent for advanced trading strategies
-
-### Data Flow
-
-```
-Synthetic Data Generator → Data Ingestion → Strategy Agent → Execution Agent
-                              ↓
-                         Logging System
-                              ↓
-                    FinRL Agent (Optional)
-```
-
-### Docker Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Development   │    │   Production    │    │    Monitoring   │
-│   Environment   │    │   Environment   │    │     Stack       │
-├─────────────────┤    ├─────────────────┤    ├─────────────────┤
-│ • Jupyter Lab   │    │ • Trading Sys   │    │ • Prometheus    │
-│ • Hot Reload    │    │ • Resource Mgmt │    │ • Grafana       │
-│ • TensorBoard   │    │ • Health Checks │    │ • Metrics       │
-│ • Testing       │    │ • Logging       │    │ • Dashboards    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-## Monitoring and Observability
-
-### Prometheus Metrics
-- Trading performance metrics
-- System resource usage
-- Error rates and response times
-- Custom business metrics
-
-### Grafana Dashboards
-- Real-time trading performance
-- System health monitoring
-- Historical data analysis
-- Alert management
-
-### Health Checks
-- Service availability monitoring
-- Dependency health verification
-- Automatic restart on failure
-- Performance degradation detection
-
-## Deployment
-
-### Local Development
-```bash
-# Start development environment
-./scripts/docker-build.sh dev
-
-# Access Jupyter Lab
-open http://localhost:8888
+# Run with Jupyter Lab for development
+docker-compose -f docker-compose.dev.yml up
 ```
 
 ### Production Deployment
 ```bash
-# Deploy to production
-./scripts/docker-build.sh prod
+# Use production compose file
+docker-compose -f docker-compose.prod.yml up -d
 
-# Monitor system health
-open http://localhost:3000  # Grafana
-open http://localhost:9090  # Prometheus
+# Monitor logs
+docker-compose -f docker-compose.prod.yml logs -f
 ```
 
-### Cloud Deployment
-The Docker setup is compatible with:
-- **AWS ECS/Fargate**: For serverless container deployment
-- **Google Cloud Run**: For scalable containerized applications
-- **Azure Container Instances**: For managed container deployment
-- **Kubernetes**: For orchestrated container management
+## 🧪 Testing
 
-### Environment Variables
+### Run All Tests
 ```bash
-# Development
-LOG_LEVEL=DEBUG
-PYTHONDONTWRITEBYTECODE=1
-
-# Production
-LOG_LEVEL=INFO
-PYTHONUNBUFFERED=1
+pytest tests/ -v
 ```
 
-## Troubleshooting
-
-### Common Docker Issues
-
-#### Build Failures
+### Test Specific Components
 ```bash
-# Clean build cache
-docker system prune -a
+# Test Alpaca integration
+pytest tests/test_alpaca_integration.py -v
 
-# Rebuild without cache
-docker build --no-cache -t algorithmic-trading .
+# Test FinRL agent
+pytest tests/test_finrl_agent.py -v
+
+# Test trading workflow
+pytest tests/test_integration.py -v
 ```
 
-#### Container Startup Issues
-```bash
-# Check container logs
-docker logs algorithmic-trading
+## ⚠️ Important Notes
 
-# Check container status
-docker ps -a
-```
+### Paper Trading vs Live Trading
+- **Paper Trading**: Uses virtual money, safe for testing
+- **Live Trading**: Uses real money, use with extreme caution
+- Always test strategies thoroughly in paper trading before going live
 
-#### Volume Mount Issues
-```bash
-# Check volume permissions
-docker run --rm -v $(pwd):/app algorithmic-trading:latest ls -la /app
+### Risk Management
+- Set appropriate position limits and drawdown thresholds
+- Monitor your portfolio regularly
+- Use stop-loss orders to limit potential losses
+- Never risk more than you can afford to lose
 
-# Fix volume permissions
-chmod -R 755 data logs models
-```
+### API Rate Limits
+- Alpaca has rate limits on API calls
+- The system includes built-in delays to respect these limits
+- Monitor your API usage in the Alpaca dashboard
 
-### Performance Optimization
-
-#### Resource Tuning
-```yaml
-# Adjust resource limits in docker-compose.prod.yml
-deploy:
-  resources:
-    limits:
-      memory: 4G  # Increase for heavy workloads
-      cpus: '2.0' # Increase for CPU-intensive tasks
-```
-
-#### Logging Optimization
-```yaml
-# Reduce log verbosity in production
-logging:
-  driver: "json-file"
-  options:
-    max-size: "5m"   # Smaller log files
-    max-file: "2"    # Fewer log files
-```
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass (including Docker tests)
+3. Make your changes
+4. Add tests for new functionality
 5. Submit a pull request
 
-### Development Workflow
-```bash
-# Start development environment
-./scripts/docker-build.sh dev
+## 📄 License
 
-# Make changes and test
-./scripts/docker-build.sh test
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-# Run linting
-docker-compose -f docker-compose.dev.yml run linting
+## 🆘 Support
 
-# Commit and push
-git add .
-git commit -m "Add new feature"
-git push origin feature-branch
-```
+- **Documentation**: Check the logs and configuration files
+- **Issues**: Report bugs and feature requests on GitHub
+- **Alpaca Support**: Contact Alpaca for API-related issues
+- **Community**: Join our Discord/Telegram for discussions
 
-## License
+## 🔗 Useful Links
 
-This project is licensed under the Apache License, Version 2.0 - see the LICENSE file for details.
+- [Alpaca Markets Documentation](https://alpaca.markets/docs/)
+- [FinRL Documentation](https://finrl.readthedocs.io/)
+- [Stable Baselines3 Documentation](https://stable-baselines3.readthedocs.io/)
+- [Gymnasium Documentation](https://gymnasium.farama.org/)
 
-## About
+---
 
-A comprehensive, production-ready algorithmic trading system with real-time market data streaming, multi-symbol trading, advanced technical analysis, robust risk management capabilities, and full Docker containerization support.
-
-[Medium Article](https://medium.com/@edwinsalguero/data-pipeline-design-in-an-algorithmic-trading-system-ac0d8109c4b9) 
+**Disclaimer**: This software is for educational and research purposes. Trading involves substantial risk of loss and is not suitable for all investors. Past performance does not guarantee future results. Always consult with a financial advisor before making investment decisions. 
