@@ -47,7 +47,7 @@ A sophisticated algorithmic trading system that combines reinforcement learning 
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/EAName/algorithmic_trading.git
+git clone https://github.com/ParallelLLC/algorithmic_trading.git
 cd algorithmic_trading
 ```
 
