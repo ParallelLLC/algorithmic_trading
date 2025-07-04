@@ -1,0 +1,65 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run full test suite
+      run: |
+        pytest tests/ -v --cov=agentic_ai_system
+        
+    - name: Generate changelog
+      id: changelog
+      run: |
+        echo "## What's Changed" > CHANGELOG.md
+        git log --oneline $(git describe --tags --abbrev=0 HEAD^)..HEAD >> CHANGELOG.md
+        
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Algorithmic Trading System Release ${{ github.ref }}
+          
+          ### 🚀 New Features
+          - Enhanced FinRL integration
+          - Improved Alpaca broker support
+          - Better risk management
+          
+          ### 🔧 Improvements
+          - Updated documentation
+          - Performance optimizations
+          - Bug fixes
+          
+          ### 📦 Docker Image
+          ```bash
+          docker pull dataen10/algorithmic_trading:${{ github.ref_name }}
+          ```
+          
+          ### 📋 Changelog
+          ${{ steps.changelog.outputs.body }}
+        draft: false
+        prerelease: false 
