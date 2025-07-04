@@ -102,7 +102,7 @@ jobs:
         echo "- Training Stability: Good" >> backtesting-report.md
         
     - name: Upload backtesting report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: backtesting-report
         path: backtesting-report.md 

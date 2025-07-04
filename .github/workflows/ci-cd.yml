@@ -49,7 +49,7 @@ jobs:
         safety check --json --output safety-report.json || true
         
     - name: Upload security reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-reports
         path: |
@@ -92,7 +92,7 @@ jobs:
         name: codecov-umbrella
         
     - name: Upload test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ matrix.python-version }}
         path: |
@@ -135,7 +135,7 @@ jobs:
         "
         
     - name: Upload trained model
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: finrl-model
         path: models/finrl_best/
@@ -169,7 +169,7 @@ jobs:
         docker save ${{ env.DOCKER_IMAGE }}:test -o /tmp/docker-image.tar
         
     - name: Upload Docker image
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: docker-image
         path: /tmp/docker-image.tar
@@ -295,7 +295,7 @@ jobs:
         "
         
     - name: Upload performance report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-report
         path: performance-results.json
