@@ -1,0 +1,71 @@
+name: Setup Branch Protection
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to protect'
+        required: true
+        default: 'main'
+      required_reviews:
+        description: 'Number of required reviews'
+        required: true
+        default: '2'
+      required_status_checks:
+        description: 'Required status checks (comma-separated)'
+        required: true
+        default: 'ci-cd/quality-check,ci-cd/test,ci-cd/security,ci-cd/backtesting'
+
+jobs:
+  setup-protection:
+    name: Setup Branch Protection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Branch Protection
+      run: |
+        BRANCH="${{ github.event.inputs.branch }}"
+        REVIEWS="${{ github.event.inputs.required_reviews }}"
+        CHECKS="${{ github.event.inputs.required_status_checks }}"
+        
+        # Convert comma-separated checks to JSON array
+        CHECKS_JSON=$(echo "[$(echo $CHECKS | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/')]")
+        
+        echo "Setting up protection for branch: $BRANCH"
+        echo "Required reviews: $REVIEWS"
+        echo "Required checks: $CHECKS"
+        
+        # Enable branch protection
+        gh api repos/${{ github.repository }}/branches/$BRANCH/protection \
+          --method PUT \
+          --field required_status_checks="{\"strict\":true,\"contexts\":$CHECKS_JSON}" \
+          --field enforce_admins=true \
+          --field required_pull_request_reviews="{\"required_approving_review_count\":$REVIEWS,\"dismiss_stale_reviews\":true,\"require_code_owner_reviews\":true}" \
+          --field restrictions=null \
+          --field allow_force_pushes=false \
+          --field allow_deletions=false
+        
+        echo "✅ Branch protection enabled for $BRANCH"
+        
+    - name: Verify Protection
+      run: |
+        BRANCH="${{ github.event.inputs.branch }}"
+        
+        echo "Verifying branch protection for $BRANCH..."
+        
+        # Get protection status
+        PROTECTION=$(gh api repos/${{ github.repository }}/branches/$BRANCH/protection)
+        
+        echo "Protection status:"
+        echo "$PROTECTION" | jq '.'
+        
+        # Check if protection is enabled
+        if echo "$PROTECTION" | jq -e '.required_status_checks' > /dev/null; then
+          echo "✅ Branch protection is active"
+        else
+          echo "❌ Branch protection not properly configured"
+          exit 1
+        fi 

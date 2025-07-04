@@ -1,0 +1,47 @@
+# Global owners - everything will require their review
+* @dataen10
+
+# Core Trading Logic - requires trading expert review
+/agentic_ai_system/strategy_agent.py @dataen10
+/agentic_ai_system/execution_agent.py @dataen10
+/agentic_ai_system/alpaca_broker.py @dataen10
+
+# Machine Learning Components - requires ML expert review
+/agentic_ai_system/finrl_agent.py @dataen10
+/agentic_ai_system/synthetic_data_generator.py @dataen10
+
+# Risk Management - requires risk expert review
+/agentic_ai_system/risk_management.py @dataen10
+/config.yaml @dataen10
+
+# Data Processing - requires data expert review
+/agentic_ai_system/data_ingestion.py @dataen10
+
+# Infrastructure and DevOps - requires DevOps expert review
+/Dockerfile @dataen10
+/docker-compose*.yml @dataen10
+/docker-entrypoint.sh @dataen10
+/.github/ @dataen10
+/scripts/ @dataen10
+
+# Testing - requires QA expert review
+/tests/ @dataen10
+/pytest.ini @dataen10
+
+# Documentation - requires technical writer review
+/README.md @dataen10
+/docs/ @dataen10
+/*.md @dataen10
+
+# Configuration and Environment - requires security review
+/.env* @dataen10
+/env.example @dataen10
+/.gitignore @dataen10
+
+# Dependencies - requires security review
+/requirements.txt @dataen10
+/requirements-dev.txt @dataen10
+
+# CI/CD Configuration - requires DevOps expert review
+/.github/workflows/ @dataen10
+/.github/dependabot.yml @dataen10 
