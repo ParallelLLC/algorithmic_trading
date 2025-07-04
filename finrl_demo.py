@@ -23,15 +23,16 @@ from agentic_ai_system.finrl_agent import FinRLAgent, FinRLConfig, create_finrl_
 from agentic_ai_system.synthetic_data_generator import SyntheticDataGenerator
 from agentic_ai_system.logger_config import setup_logging
 
-# Setup logging
-setup_logging()
-logger = logging.getLogger(__name__)
-
 
 def load_config(config_path: str = 'config.yaml') -> dict:
     """Load configuration from YAML file"""
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
+
+# Setup logging
+config = load_config()
+setup_logging(config)
+logger = logging.getLogger(__name__)
 
 
 def generate_training_data(config: dict) -> pd.DataFrame:

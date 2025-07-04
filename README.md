@@ -1,21 +1,3 @@
----
-license: apache-2.0
-tags:
-  - reinforcement-learning
-  - algorithmic-trading
-  - finance
-  - finrl
-  - synthetic-data
-  - time-series
-  - gymnasium
-  - stable-baselines3
-library_name: stable-baselines3
-datasets: []
-model-index:
-  - name: Algorithmic Trading System with FinRL
-    results: []
----
-
 # Algorithmic Trading System
 
 A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, extensive testing capabilities, and FinRL reinforcement learning integration.
@@ -60,7 +42,7 @@ A comprehensive algorithmic trading system with synthetic data generation, compr
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/EAName/algorithmic_trading.git
 cd algorithmic_trading
 ```
 
