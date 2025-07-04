@@ -1,3 +1,30 @@
+---
+language: code
+license: apache-2.0
+tags:
+- algorithmic-trading
+- reinforcement-learning
+- finrl
+- trading-bot
+- machine-learning
+- finance
+- quantitative-finance
+- backtesting
+- risk-management
+- technical-analysis
+- docker
+- python
+datasets:
+- synthetic-market-data
+metrics:
+- sharpe-ratio
+- total-return
+- drawdown
+- win-rate
+library_name: algorithmic-trading
+paperswithcode_id: null
+---
+
 # Algorithmic Trading System
 
 A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, extensive testing capabilities, FinRL reinforcement learning integration, and full Docker support.
