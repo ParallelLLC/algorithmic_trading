@@ -25,7 +25,7 @@ paperswithcode_id: null
 
 # Algorithmic Trading System
 
-A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, extensive testing capabilities, and FinRL reinforcement learning integration.
+A comprehensive algorithmic trading system with synthetic data generation, comprehensive logging, extensive testing capabilities, FinRL reinforcement learning integration, and full Docker support.
 
 ## Features
 
@@ -43,6 +43,16 @@ A comprehensive algorithmic trading system with synthetic data generation, compr
 - **Model Persistence**: Save and load trained models for inference
 - **TensorBoard Integration**: Training progress visualization and monitoring
 - **Comprehensive Evaluation**: Performance metrics including Sharpe ratio and total returns
+
+### Docker Integration
+- **Multi-Environment Support**: Development, production, and testing environments
+- **Container Orchestration**: Docker Compose for easy service management
+- **Monitoring Stack**: Prometheus and Grafana for system monitoring
+- **Development Tools**: Jupyter Lab integration for interactive development
+- **Automated Testing**: Containerized test execution with coverage reporting
+- **Resource Management**: CPU and memory limits for production deployment
+- **Health Checks**: Built-in health monitoring for all services
+- **Backup Services**: Automated backup and data persistence
 
 ### Synthetic Data Generation
 - **Realistic Market Data**: Generate OHLCV data using geometric Brownian motion
@@ -65,6 +75,25 @@ A comprehensive algorithmic trading system with synthetic data generation, compr
 
 ## Installation
 
+### Option 1: Docker (Recommended)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/ParallelLLC/algorithmic_trading.git
+cd algorithmic_trading
+```
+
+2. Build and run with Docker:
+```bash
+# Build the image
+docker build -t algorithmic-trading .
+
+# Run the trading system
+docker run -p 8000:8000 algorithmic-trading
+```
+
+### Option 2: Local Installation
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/ParallelLLC/algorithmic_trading.git
@@ -74,6 +103,128 @@ cd algorithmic_trading
 2. Install dependencies:
 ```bash
 pip install -r requirements.txt
+```
+
+## Docker Usage
+
+### Quick Start
+
+```bash
+# Build and start development environment
+./scripts/docker-build.sh dev
+
+# Build and start production environment
+./scripts/docker-build.sh prod
+
+# Run tests in Docker
+./scripts/docker-build.sh test
+
+# Stop all containers
+./scripts/docker-build.sh stop
+```
+
+### Development Environment
+
+```bash
+# Start development environment with Jupyter Lab
+docker-compose -f docker-compose.dev.yml up -d
+
+# Access services:
+# - Jupyter Lab: http://localhost:8888
+# - Trading System: http://localhost:8000
+# - TensorBoard: http://localhost:6006
+```
+
+### Production Environment
+
+```bash
+# Start production environment with monitoring
+docker-compose -f docker-compose.prod.yml up -d
+
+# Access services:
+# - Trading System: http://localhost:8000
+# - Grafana: http://localhost:3000 (admin/admin)
+# - Prometheus: http://localhost:9090
+```
+
+### Custom Commands
+
+```bash
+# Run a specific command in the container
+./scripts/docker-build.sh run 'python demo.py'
+
+# Run FinRL training
+./scripts/docker-build.sh run 'python finrl_demo.py'
+
+# Run backtesting
+./scripts/docker-build.sh run 'python -m agentic_ai_system.main --mode backtest'
+
+# Show logs
+./scripts/docker-build.sh logs trading-system
+```
+
+### Docker Compose Services
+
+#### Development (`docker-compose.dev.yml`)
+- **trading-dev**: Jupyter Lab environment with hot reload
+- **finrl-training-dev**: FinRL training with TensorBoard
+- **testing**: Automated test execution
+- **linting**: Code quality checks
+
+#### Production (`docker-compose.prod.yml`)
+- **trading-system**: Main trading system with resource limits
+- **monitoring**: Prometheus metrics collection
+- **grafana**: Data visualization dashboard
+- **backup**: Automated backup service
+
+#### Standard (`docker-compose.yml`)
+- **trading-system**: Basic trading system
+- **finrl-training**: FinRL training service
+- **backtesting**: Backtesting service
+- **development**: Development environment
+
+### Docker Features
+
+#### Health Checks
+All services include health checks to ensure system reliability:
+```yaml
+healthcheck:
+  test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+```
+
+#### Resource Management
+Production services include resource limits:
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 2G
+      cpus: '1.0'
+    reservations:
+      memory: 512M
+      cpus: '0.5'
+```
+
+#### Volume Management
+Persistent data storage with named volumes:
+- `trading_data`: Market data and configuration
+- `trading_logs`: System logs
+- `trading_models`: Trained models
+- `prometheus_data`: Monitoring metrics
+- `grafana_data`: Dashboard configurations
+
+#### Logging
+Structured logging with rotation:
+```yaml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
 ```
 
 ## Configuration
@@ -121,6 +272,23 @@ logging:
   enable_file: true
   max_file_size_mb: 10
   backup_count: 5
+
+# FinRL configuration
+finrl:
+  algorithm: 'PPO'
+  learning_rate: 0.0003
+  batch_size: 64
+  buffer_size: 1000000
+  gamma: 0.99
+  tensorboard_log: 'logs/finrl_tensorboard'
+  training:
+    total_timesteps: 100000
+    eval_freq: 10000
+    save_best_model: true
+    model_save_path: 'models/finrl_best/'
+  inference:
+    use_trained_model: false
+    model_path: 'models/finrl_best/best_model'
 ```
 
 ## Usage
@@ -172,6 +340,15 @@ pytest --cov=agentic_ai_system --cov-report=html
 pytest tests/test_synthetic_data_generator.py
 ```
 
+### Docker Testing
+```bash
+# Run all tests in Docker
+./scripts/docker-build.sh test
+
+# Run tests with coverage
+docker run --rm -v $(pwd):/app algorithmic-trading:latest pytest --cov=agentic_ai_system --cov-report=html
+```
+
 ## System Architecture
 
 ### Components
@@ -182,6 +359,7 @@ pytest tests/test_synthetic_data_generator.py
 4. **ExecutionAgent**: Executes trading orders with broker simulation
 5. **Orchestrator**: Coordinates the entire trading workflow
 6. **LoggerConfig**: Manages comprehensive logging throughout the system
+7. **FinRLAgent**: Reinforcement learning agent for advanced trading strategies
 
 ### Data Flow
 
@@ -189,266 +367,167 @@ pytest tests/test_synthetic_data_generator.py
 Synthetic Data Generator → Data Ingestion → Strategy Agent → Execution Agent
                               ↓
                          Logging System
+                              ↓
+                    FinRL Agent (Optional)
 ```
 
-## Synthetic Data Generation
+### Docker Architecture
 
-### Features
-- **Geometric Brownian Motion**: Realistic price movement simulation
-- **OHLCV Data**: Complete market data with open, high, low, close, and volume
-- **Market Scenarios**: Different market conditions for testing
-- **Configurable Parameters**: Adjustable volatility, trend, and noise levels
-
-### Usage Examples
-
-```python
-from agentic_ai_system.synthetic_data_generator import SyntheticDataGenerator
-
-# Initialize generator
-generator = SyntheticDataGenerator(config)
-
-# Generate OHLCV data
-data = generator.generate_ohlcv_data(
-    symbol='AAPL',
-    start_date='2024-01-01',
-    end_date='2024-12-31',
-    frequency='1min'
-)
-
-# Generate tick data
-tick_data = generator.generate_tick_data(
-    symbol='AAPL',
-    duration_minutes=60,
-    tick_interval_ms=1000
-)
-
-# Generate market scenarios
-crash_data = generator.generate_market_scenarios('crash')
-volatile_data = generator.generate_market_scenarios('volatile')
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Development   │    │   Production    │    │    Monitoring   │
+│   Environment   │    │   Environment   │    │     Stack       │
+├─────────────────┤    ├─────────────────┤    ├─────────────────┤
+│ • Jupyter Lab   │    │ • Trading Sys   │    │ • Prometheus    │
+│ • Hot Reload    │    │ • Resource Mgmt │    │ • Grafana       │
+│ • TensorBoard   │    │ • Health Checks │    │ • Metrics       │
+│ • Testing       │    │ • Logging       │    │ • Dashboards    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## Logging System
+## Monitoring and Observability
 
-### Log Files
-- `logs/trading_system.log`: General system logs
-- `logs/trading.log`: Trading-specific logs
-- `logs/performance.log`: Performance metrics
-- `logs/errors.log`: Error logs
+### Prometheus Metrics
+- Trading performance metrics
+- System resource usage
+- Error rates and response times
+- Custom business metrics
 
-### Log Levels
-- **DEBUG**: Detailed debugging information
-- **INFO**: General information about system operation
-- **WARNING**: Warning messages for potential issues
-- **ERROR**: Error messages for failed operations
-- **CRITICAL**: Critical system failures
+### Grafana Dashboards
+- Real-time trading performance
+- System health monitoring
+- Historical data analysis
+- Alert management
 
-### Usage Examples
+### Health Checks
+- Service availability monitoring
+- Dependency health verification
+- Automatic restart on failure
+- Performance degradation detection
 
-```python
-import logging
-from agentic_ai_system.logger_config import setup_logging, get_logger
+## Deployment
 
-# Setup logging
-setup_logging(config)
-
-# Get logger for specific module
-logger = get_logger(__name__)
-
-# Log messages
-logger.info("Trading signal generated")
-logger.warning("High volatility detected")
-logger.error("Order execution failed", exc_info=True)
-```
-
-## FinRL Integration
-
-### Overview
-The system now includes FinRL (Financial Reinforcement Learning) integration, providing state-of-the-art reinforcement learning capabilities for algorithmic trading. The FinRL agent can learn optimal trading strategies through interaction with a simulated market environment.
-
-### Supported Algorithms
-- **PPO (Proximal Policy Optimization)**: Stable policy gradient method
-- **A2C (Advantage Actor-Critic)**: Actor-critic method with advantage estimation
-- **DDPG (Deep Deterministic Policy Gradient)**: Continuous action space algorithm
-- **TD3 (Twin Delayed DDPG)**: Improved version of DDPG with twin critics
-
-### Trading Environment
-The custom trading environment provides:
-- **Action Space**: Discrete actions (0=Buy, 1=Hold, 2=Sell)
-- **Observation Space**: OHLCV data + technical indicators + portfolio state
-- **Reward Function**: Portfolio return-based rewards
-- **Transaction Costs**: Realistic trading fees and slippage
-- **Position Limits**: Maximum position constraints
-
-### Usage Examples
-
-#### Basic FinRL Training
-```python
-from agentic_ai_system.finrl_agent import FinRLAgent, FinRLConfig
-import pandas as pd
-
-# Create configuration
-config = FinRLConfig(
-    algorithm="PPO",
-    learning_rate=0.0003,
-    batch_size=64,
-    total_timesteps=100000
-)
-
-# Initialize agent
-agent = FinRLAgent(config)
-
-# Train the agent
-training_result = agent.train(
-    data=market_data,
-    total_timesteps=100000,
-    eval_freq=10000
-)
-
-# Generate predictions
-predictions = agent.predict(test_data)
-
-# Evaluate performance
-evaluation = agent.evaluate(test_data)
-print(f"Total Return: {evaluation['total_return']:.2%}")
-```
-
-#### Using Configuration File
-```python
-from agentic_ai_system.finrl_agent import create_finrl_agent_from_config
-
-# Create agent from config file
-agent = create_finrl_agent_from_config('config.yaml')
-
-# Train and evaluate
-agent.train(market_data)
-results = agent.evaluate(test_data)
-```
-
-#### Running FinRL Demo
+### Local Development
 ```bash
-# Run the complete FinRL demo
-python finrl_demo.py
+# Start development environment
+./scripts/docker-build.sh dev
 
-# This will:
-# 1. Generate synthetic training and test data
-# 2. Train a FinRL agent
-# 3. Evaluate performance
-# 4. Generate trading predictions
-# 5. Create visualization plots
+# Access Jupyter Lab
+open http://localhost:8888
 ```
 
-### Configuration
-FinRL settings can be configured in `config.yaml`:
+### Production Deployment
+```bash
+# Deploy to production
+./scripts/docker-build.sh prod
 
+# Monitor system health
+open http://localhost:3000  # Grafana
+open http://localhost:9090  # Prometheus
+```
+
+### Cloud Deployment
+The Docker setup is compatible with:
+- **AWS ECS/Fargate**: For serverless container deployment
+- **Google Cloud Run**: For scalable containerized applications
+- **Azure Container Instances**: For managed container deployment
+- **Kubernetes**: For orchestrated container management
+
+### Environment Variables
+```bash
+# Development
+LOG_LEVEL=DEBUG
+PYTHONDONTWRITEBYTECODE=1
+
+# Production
+LOG_LEVEL=INFO
+PYTHONUNBUFFERED=1
+```
+
+## Troubleshooting
+
+### Common Docker Issues
+
+#### Build Failures
+```bash
+# Clean build cache
+docker system prune -a
+
+# Rebuild without cache
+docker build --no-cache -t algorithmic-trading .
+```
+
+#### Container Startup Issues
+```bash
+# Check container logs
+docker logs algorithmic-trading
+
+# Check container status
+docker ps -a
+```
+
+#### Volume Mount Issues
+```bash
+# Check volume permissions
+docker run --rm -v $(pwd):/app algorithmic-trading:latest ls -la /app
+
+# Fix volume permissions
+chmod -R 755 data logs models
+```
+
+### Performance Optimization
+
+#### Resource Tuning
 ```yaml
-finrl:
-  algorithm: 'PPO'  # PPO, A2C, DDPG, TD3
-  learning_rate: 0.0003
-  batch_size: 64
-  buffer_size: 1000000
-  gamma: 0.99
-  tensorboard_log: 'logs/finrl_tensorboard'
-  training:
-    total_timesteps: 100000
-    eval_freq: 10000
-    save_best_model: true
-    model_save_path: 'models/finrl_best/'
-  inference:
-    use_trained_model: false
-    model_path: 'models/finrl_best/best_model'
+# Adjust resource limits in docker-compose.prod.yml
+deploy:
+  resources:
+    limits:
+      memory: 4G  # Increase for heavy workloads
+      cpus: '2.0' # Increase for CPU-intensive tasks
 ```
 
-### Model Management
-```python
-# Save trained model
-agent.save_model('models/my_finrl_model')
-
-# Load pre-trained model
-agent.load_model('models/my_finrl_model')
-
-# Continue training
-agent.train(more_data, total_timesteps=50000)
+#### Logging Optimization
+```yaml
+# Reduce log verbosity in production
+logging:
+  driver: "json-file"
+  options:
+    max-size: "5m"   # Smaller log files
+    max-file: "2"    # Fewer log files
 ```
-
-### Performance Monitoring
-- **TensorBoard Integration**: Monitor training progress
-- **Evaluation Metrics**: Total return, Sharpe ratio, portfolio value
-- **Trading Statistics**: Buy/sell signal analysis
-- **Visualization**: Price charts with trading signals
-
-### Advanced Features
-- **Multi-timeframe Support**: Train on different data frequencies
-- **Feature Engineering**: Automatic technical indicator calculation
-- **Risk Management**: Built-in position and drawdown limits
-- **Backtesting**: Comprehensive backtesting capabilities
-- **Hyperparameter Tuning**: Easy configuration for different algorithms
-
-## Testing
-
-### Test Structure
-```
-tests/
-├── __init__.py
-├── test_synthetic_data_generator.py
-├── test_strategy_agent.py
-├── test_execution_agent.py
-├── test_data_ingestion.py
-├── test_integration.py
-├── test_finrl_agent.py
-```
-
-### Test Categories
-- **Unit Tests**: Test individual components in isolation
-- **Integration Tests**: Test complete workflows
-- **Performance Tests**: Test system performance and scalability
-- **Error Handling Tests**: Test error conditions and edge cases
-- **Slow RL Tests**: RL agent training tests are marked as `@pytest.mark.slow` and use minimal timesteps for speed. These are skipped by default unless explicitly run.
-
-### Running Specific Tests
-
-```bash
-# Run all fast tests (default)
-pytest
-
-# Run slow RL tests (FinRL agent training)
-pytest -m slow
-
-# Run tests with coverage
-pytest --cov=agentic_ai_system --cov-report=html
-
-# Run tests in parallel
-pytest -n auto
-
-# Run tests with verbose output
-pytest -v
-```
-
-## Performance Monitoring
-
-The system includes comprehensive performance monitoring:
-
-- **Execution Time Tracking**: Monitor workflow execution times
-- **Trade Statistics**: Track successful vs failed trades
-- **Performance Metrics**: Calculate returns and drawdowns
-- **Resource Usage**: Monitor memory and CPU usage
-
-## Error Handling
-
-The system includes robust error handling:
-
-- **Graceful Degradation**: System continues operation despite component failures
-- **Error Logging**: Comprehensive error logging with stack traces
-- **Fallback Mechanisms**: Automatic fallback to synthetic data when CSV files are missing
-- **Validation**: Data validation at multiple levels
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
-4. Ensure all tests pass
+4. Ensure all tests pass (including Docker tests)
 5. Submit a pull request
+
+### Development Workflow
+```bash
+# Start development environment
+./scripts/docker-build.sh dev
+
+# Make changes and test
+./scripts/docker-build.sh test
+
+# Run linting
+docker-compose -f docker-compose.dev.yml run linting
+
+# Commit and push
+git add .
+git commit -m "Add new feature"
+git push origin feature-branch
+```
 
 ## License
 
-This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the Apache License, Version 2.0 - see the LICENSE file for details.
+
+## About
+
+A comprehensive, production-ready algorithmic trading system with real-time market data streaming, multi-symbol trading, advanced technical analysis, robust risk management capabilities, and full Docker containerization support.
+
+[Medium Article](https://medium.com/@edwinsalguero/data-pipeline-design-in-an-algorithmic-trading-system-ac0d8109c4b9) 

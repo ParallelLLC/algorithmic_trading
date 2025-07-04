@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Development environment with hot reload
+  trading-dev:
+    build: .
+    container_name: trading-dev
+    ports:
+      - "8888:8888"  # Jupyter Lab
+      - "8000:8000"  # Trading system
+      - "6006:6006"  # TensorBoard
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=DEBUG
+      - PYTHONDONTWRITEBYTECODE=1
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # FinRL training with TensorBoard
+  finrl-training-dev:
+    build: .
+    container_name: finrl-training-dev
+    ports:
+      - "6006:6006"  # TensorBoard
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=DEBUG
+    command: ["python", "finrl_demo.py"]
+    restart: "no"
+
+  # Testing service
+  testing:
+    build: .
+    container_name: trading-testing
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=DEBUG
+    command: ["pytest", "-v", "--cov=agentic_ai_system", "--cov-report=html"]
+    restart: "no"
+
+  # Linting and code quality
+  linting:
+    build: .
+    container_name: trading-lint
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    command: ["sh", "-c", "pip install flake8 black isort mypy && flake8 agentic_ai_system && black --check agentic_ai_system && isort --check-only agentic_ai_system"]
+    restart: "no"
+
+volumes:
+  data:
+  logs:
+  models: 
