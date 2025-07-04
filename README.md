@@ -398,7 +398,7 @@ pytest tests/test_integration.py -v
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Alpaca 2 License - see the LICENSE file for details.
 
 ## 🆘 Support
 
