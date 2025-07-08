@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'ui'))
 
 # Import and run the main Streamlit app
-from streamlit_app import main
+from ui.streamlit_app import main
 
 if __name__ == "__main__":
     main() 
