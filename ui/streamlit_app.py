@@ -26,11 +26,86 @@ import time
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agentic_ai_system.main import load_config
-from agentic_ai_system.data_ingestion import load_data, validate_data, add_technical_indicators
-from agentic_ai_system.finrl_agent import FinRLAgent, FinRLConfig
-from agentic_ai_system.alpaca_broker import AlpacaBroker
-from agentic_ai_system.orchestrator import run_backtest, run_live_trading
+# Import with error handling for deployment
+try:
+    from agentic_ai_system.main import load_config
+    from agentic_ai_system.data_ingestion import load_data, validate_data, add_technical_indicators
+    from agentic_ai_system.finrl_agent import FinRLAgent, FinRLConfig
+    from agentic_ai_system.alpaca_broker import AlpacaBroker
+    from agentic_ai_system.orchestrator import run_backtest, run_live_trading
+    DEPLOYMENT_MODE = False
+except ImportError as e:
+    st.warning(f"⚠️ Some modules not available in deployment mode: {e}")
+    DEPLOYMENT_MODE = True
+    
+    # Mock functions for deployment
+    def load_config(config_file):
+        return {
+            'trading': {'symbol': 'AAPL', 'capital': 100000, 'timeframe': '1d'},
+            'execution': {'broker_api': 'alpaca_paper'},
+            'finrl': {'algorithm': 'PPO'},
+            'risk': {'max_drawdown': 0.1}
+        }
+    
+    def load_data(config):
+        # Generate sample data for deployment
+        dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+        np.random.seed(42)
+        prices = 150 + np.cumsum(np.random.randn(len(dates)) * 0.5)
+        
+        data = pd.DataFrame({
+            'timestamp': dates,
+            'open': prices * 0.99,
+            'high': prices * 1.02,
+            'low': prices * 0.98,
+            'close': prices,
+            'volume': np.random.randint(1000000, 5000000, len(dates))
+        })
+        return data
+    
+    def add_technical_indicators(data):
+        data['sma_20'] = data['close'].rolling(window=20).mean()
+        data['sma_50'] = data['close'].rolling(window=50).mean()
+        return data
+    
+    class FinRLAgent:
+        def __init__(self, config):
+            self.config = config
+        
+        def train(self, data, config, total_timesteps, use_real_broker=False):
+            return {'success': True, 'message': 'Training completed (demo mode)'}
+    
+    class FinRLConfig:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+    
+    class AlpacaBroker:
+        def __init__(self, config):
+            self.config = config
+        
+        def get_account_info(self):
+            return {
+                'portfolio_value': 100000,
+                'equity': 102500,
+                'cash': 50000,
+                'buying_power': 50000
+            }
+        
+        def get_positions(self):
+            return []
+    
+    def run_backtest(config, data):
+        return {
+            'success': True,
+            'total_return': 0.025,
+            'sharpe_ratio': 1.2,
+            'max_drawdown': 0.05,
+            'total_trades': 15
+        }
+    
+    def run_live_trading(config, data):
+        return {'success': True, 'message': 'Live trading started (demo mode)'}
 
 # Page configuration
 st.set_page_config(
@@ -674,6 +749,10 @@ def main():
     """Main application entry point"""
     ui = TradingUI()
     ui.run()
+
+def create_streamlit_app():
+    """Create and return a Streamlit trading application"""
+    return TradingUI()
 
 if __name__ == "__main__":
     main() 

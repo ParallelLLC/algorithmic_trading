@@ -4,7 +4,7 @@ pandas>=1.3.0
 scikit-learn>=1.0.0
 matplotlib>=3.5.0
 seaborn>=0.11.0
-yaml>=5.4.0
+PyYAML>=5.4.0
 requests>=2.25.0
 python-dotenv>=0.19.0
 
@@ -14,7 +14,8 @@ gym>=0.21.0
 torch>=1.9.0
 
 # Alpaca integration
-alpaca-trade-api>=2.0.0
+alpaca-py>=0.42.0
+yfinance>=0.2.0
 
 # Testing
 pytest>=6.0.0
@@ -37,18 +38,19 @@ dash-daq>=0.5.0
 rich>=13.0.0
 tqdm>=4.64.0
 ipywidgets>=8.0.0
-voila>=0.4.0
 jupyter-dash>=0.4.0
 
 # Real-time updates
 websockets>=10.0
-asyncio-mqtt>=0.11.0
 
 # Data visualization
 bokeh>=3.0.0
 altair>=5.0.0
-vega-lite>=5.0.0
 
 # Authentication and security
 dash-auth>=2.0.0
 flask-login>=0.6.0
+
+# WebSocket and async
+fastapi>=0.116.0
+uvicorn>=0.35.0
