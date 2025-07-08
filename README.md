@@ -1,15 +1,3 @@
----
-title: Algorithmic Trading System
-emoji: 📈
-colorFrom: blue
-colorTo: green
-sdk: streamlit
-sdk_version: 1.46.1
-app_file: streamlit_app.py
-pinned: false
-license: apache-2.0
----
-
 # Algorithmic Trading System with FinRL and Alpaca Integration
 
 A sophisticated algorithmic trading system that combines reinforcement learning (FinRL) with real-time market data and order execution through Alpaca Markets. This system supports both paper trading and live trading with advanced risk management and technical analysis.
