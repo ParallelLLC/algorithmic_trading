@@ -7,7 +7,7 @@ sdk: streamlit
 sdk_version: 1.46.1
 app_file: streamlit_app.py
 pinned: false
-license: mit
+license: apache-2.0
 ---
 
 # Algorithmic Trading System
@@ -53,4 +53,4 @@ streamlit run streamlit_app.py
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
