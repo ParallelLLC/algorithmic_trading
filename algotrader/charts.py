@@ -67,8 +67,8 @@ def empty_figure(message: str = _EMPTY_NOTE, height: int = 340) -> go.Figure:
     return fig
 
 
-def equity_chart(report) -> go.Figure:
-    """Strategy equity against buy & hold, both indexed to the same start."""
+def equity_chart(report, benchmark_label: str = "Buy & hold") -> go.Figure:
+    """Strategy equity against its benchmark, both indexed to the same start."""
     bt = report.backtest
     strat = bt.equity / bt.equity.iloc[0] * 100.0
     bench = bt.benchmark_equity / bt.benchmark_equity.iloc[0] * 100.0
@@ -76,9 +76,9 @@ def equity_chart(report) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=bench.index, y=bench.to_numpy(), name="Buy & hold", mode="lines",
+            x=bench.index, y=bench.to_numpy(), name=benchmark_label, mode="lines",
             line=dict(color=REFERENCE, width=2, dash="dash"),
-            hovertemplate="Buy & hold  %{y:.1f}<extra></extra>",
+            hovertemplate=benchmark_label + "  %{y:.1f}<extra></extra>",
         )
     )
     fig.add_trace(
@@ -90,7 +90,7 @@ def equity_chart(report) -> go.Figure:
     )
 
     # Direct-label the two endpoints; the axis and tooltip carry everything else.
-    for series, color, label in ((strat, SUBJECT, report.strategy.name), (bench, REFERENCE, "Buy & hold")):
+    for series, color, label in ((strat, SUBJECT, report.strategy.name), (bench, REFERENCE, benchmark_label)):
         fig.add_annotation(
             x=series.index[-1], y=float(series.iloc[-1]),
             text=f"  {label}: {series.iloc[-1]:.0f}", showarrow=False,
@@ -203,14 +203,14 @@ def walkforward_chart(report) -> go.Figure:
     return fig
 
 
-def score_chart(verdict: Dict[str, object]) -> go.Figure:
+def score_chart(verdict: Dict[str, object], significance_label: str = "Beats shuffled markets") -> go.Figure:
     """The five components behind the Reality Score."""
     components = verdict.get("components") or {}
     if not components:
         return empty_figure(height=260)
 
     pretty = {
-        "significance": "Beats shuffled markets",
+        "significance": significance_label,
         "selection": "Survives selection bias",
         "walk_forward": "Holds up walking forward",
         "overfitting": "Not overfit (PBO)",
@@ -267,6 +267,113 @@ def arena_chart(table: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(margin=dict(l=180, r=96, t=48, b=32), hovermode="closest")
     fig.add_vline(x=0, line=dict(color=AXIS, width=1))
+    return fig
+
+
+def cross_permutation_chart(report) -> go.Figure:
+    """Sharpe against books of identical shape holding randomly chosen names."""
+    perm = report.permutation
+    if perm is None or perm.null.size == 0:
+        return empty_figure("Name-shuffle test was skipped.", height=320)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=perm.null, name="Same book, random names", nbinsx=40,
+            marker=dict(color="rgba(217,89,38,0.55)", line=dict(color=REFERENCE, width=1)),
+            hovertemplate="Sharpe %{x:.2f}<br>%{y} shuffles<extra></extra>",
+        )
+    )
+    top = np.histogram(perm.null, bins=40)[0].max() if perm.null.size else 1
+    fig.add_trace(
+        go.Scatter(
+            x=[perm.observed, perm.observed], y=[0, top * 1.08], mode="lines",
+            name="Your book", line=dict(color=SUBJECT, width=2),
+            hovertemplate="Your Sharpe %{x:.2f}<extra></extra>",
+        )
+    )
+    fig.add_annotation(
+        x=perm.observed, y=top * 1.08, text=f"  your Sharpe {perm.observed:.2f}",
+        showarrow=False, xanchor="left", font=dict(color=SUBJECT, size=11),
+    )
+    beats = (perm.null >= perm.observed).mean() * 100.0
+    fig.update_layout(
+        **_base_layout(
+            f"Name-shuffle test — {beats:.0f}% of books with the same shape but random names "
+            f"did this well or better (p = {perm.p_value:.3f})",
+            height=320,
+        )
+    )
+    fig.update_layout(hovermode="closest", bargap=0.02)
+    fig.update_xaxes(title=dict(text="Annualised Sharpe ratio", font=dict(color=INK_MUTED, size=11)))
+    fig.update_yaxes(
+        title=dict(text="Shuffled books", font=dict(color=INK_MUTED, size=11)),
+        range=[0, top * 1.28],
+    )
+    return fig
+
+
+def attribution_chart(attribution: Dict[str, object]) -> go.Figure:
+    """Factor betas. One measure across categories, so one colour."""
+    if not attribution or not attribution.get("available"):
+        return empty_figure((attribution or {}).get("note", _EMPTY_NOTE), height=280)
+
+    betas = attribution.get("betas") or {}
+    if not betas:
+        return empty_figure("No factor exposures to show.", height=280)
+
+    names = list(betas)
+    values = [betas[n] for n in names]
+    fig = go.Figure(
+        go.Bar(
+            x=values, y=[n.replace("_", " ") for n in names], orientation="h",
+            marker=dict(color=SUBJECT, line=dict(color=SURFACE, width=2)),
+            text=[f"{v:+.2f}" for v in values], textposition="outside",
+            textfont=dict(color=INK_SECONDARY, size=11),
+            hovertemplate="%{y} beta %{x:.2f}<extra></extra>",
+        )
+    )
+    alpha = attribution.get("alpha_annual", 0.0)
+    t_stat = attribution.get("alpha_t_stat", 0.0)
+    fig.update_layout(
+        **_base_layout(
+            f"Style exposure — alpha {alpha:+.1%}/yr (t = {t_stat:.1f}), "
+            f"R² {attribution.get('r_squared', 0):.0%}",
+            height=280,
+            showlegend=False,
+        )
+    )
+    fig.update_layout(margin=dict(l=120, r=88, t=48, b=32), hovermode="closest")
+    # Outside labels need room or the widest beta reads as "+0".
+    span = max(abs(min(values)), abs(max(values)), 0.1)
+    fig.update_xaxes(range=[min(0, min(values)) - 0.25 * span, max(0, max(values)) + 0.35 * span])
+    fig.add_vline(x=0, line=dict(color=AXIS, width=1))
+    return fig
+
+
+def weights_chart(report) -> go.Figure:
+    """Gross and net exposure over time — is the book actually neutral?"""
+    held = report.backtest.held
+    gross = held.abs().sum(axis=1)
+    net = held.sum(axis=1)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=gross.index, y=gross.to_numpy(), name="Gross", mode="lines",
+            line=dict(color=REFERENCE, width=2, dash="dash"),
+            hovertemplate="Gross %{y:.2f}x<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=net.index, y=net.to_numpy(), name="Net", mode="lines",
+            line=dict(color=SUBJECT, width=2),
+            hovertemplate="Net %{y:.2f}x<extra></extra>",
+        )
+    )
+    fig.update_layout(**_base_layout("Book exposure", height=240))
+    fig.add_hline(y=0, line=dict(color=AXIS, width=1))
     return fig
 
 

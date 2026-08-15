@@ -41,6 +41,19 @@ you need before risking money: **how much of that was luck?**
 Each contributes to a single **Reality Score** out of 100, with a grade from A to F.
 The scale is deliberately harsh. Most strategies people post online score below 40.
 
+## Two labs
+
+**The Lab** validates a timing rule on one asset. **The Portfolio Lab** validates a
+book that ranks many names — and it gets a harder null: we keep every date's gross
+exposure, net exposure and position count exactly as they were and randomise only
+**which name got which weight**. A book that beats that is picking names. One that
+doesn't was being paid for style exposure you can buy in an ETF, which the factor
+regression measures directly.
+
+It also measures survivorship rather than assuming it away. A universe where every
+name is still trading after ten years was chosen after the fact, and every number
+computed on it is an upper bound.
+
 ## Try this first
 
 Run the **Arena** tab on `SPY`. On most markets and most date ranges, plain

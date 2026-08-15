@@ -49,8 +49,16 @@ def reality_score(
     wf_win_rate: Optional[float] = None,
     cost_stress_ratio: Optional[float] = None,
     benchmark_correlation: Optional[float] = None,
+    attribution: Optional[Dict[str, object]] = None,
+    survivorship: Optional[object] = None,
+    benchmark_name: str = "Buy & hold",
+    permutation_label: str = "shuffled, structure-free markets",
 ) -> Dict[str, object]:
-    """Combine the validation panel into a 0-100 score, a grade and warnings."""
+    """Combine the validation panel into a 0-100 score, a grade and warnings.
+
+    ``attribution`` and ``survivorship`` are the portfolio-only inputs; both are
+    optional so the single-asset path is unaffected.
+    """
     components: Dict[str, float] = {}
 
     components["significance"] = _ramp(p_value, good=0.01, bad=0.50) if p_value is not None else 50.0
@@ -106,8 +114,8 @@ def reality_score(
         score = min(score, 55.0)
     if p_value is not None and p_value > 0.10:
         flags.append(
-            f"Permutation p-value is {p_value:.2f}: roughly {p_value * 100:.0f}% of shuffled, "
-            "structure-free markets did this well or better."
+            f"Permutation p-value is {p_value:.2f}: roughly {p_value * 100:.0f}% of "
+            f"{permutation_label} did this well or better."
         )
     if dsr is not None and dsr < 0.5:
         flags.append(
@@ -131,12 +139,13 @@ def reality_score(
         )
     if benchmark_correlation is not None and benchmark_correlation > 0.95:
         flags.append(
-            f"Returns are {benchmark_correlation:.0%} correlated with buy & hold — "
+            f"Returns are {benchmark_correlation:.0%} correlated with {benchmark_name.lower()} — "
             "this is mostly a repackaged long position."
         )
     if sharpe < bench_sharpe:
         flags.append(
-            f"Buy & hold beat it on risk-adjusted return ({bench_sharpe:.2f} vs {sharpe:.2f} Sharpe)."
+            f"{benchmark_name} beat it on risk-adjusted return "
+            f"({bench_sharpe:.2f} vs {sharpe:.2f} Sharpe)."
         )
     if float(metrics.get("turnover_ann", 0.0)) > 100:
         flags.append(
@@ -144,11 +153,36 @@ def reality_score(
             "retail execution can absorb without moving the modelled fills."
         )
 
+    # Portfolio-only checks. Style exposure you could buy in an ETF is not
+    # alpha, and a universe with no failures in it is not a universe.
+    if attribution and attribution.get("available"):
+        if not attribution.get("alpha_significant"):
+            flags.append(
+                f"Style regression leaves no significant alpha (t = "
+                f"{attribution.get('alpha_t_stat', 0):.1f}); the factors explain "
+                f"{attribution.get('r_squared', 0):.0%} of returns"
+                + (
+                    f", mostly {attribution['dominant_factor']} exposure."
+                    if attribution.get("dominant_factor")
+                    else "."
+                )
+            )
+            score = min(score, 65.0)
+        if float(attribution.get("r_squared", 0.0)) > 0.9:
+            flags.append(
+                "Over 90% of the return variation is explained by simple style factors — "
+                "this book is a repackaged index."
+            )
+    if survivorship is not None and getattr(survivorship, "biased", False):
+        flags.append(getattr(survivorship, "note", "Universe appears survivorship-biased."))
+        score = min(score, 60.0)
+
+    score = float(np.clip(score, 0.0, 100.0))
     grade, headline = next((g, h) for threshold, g, h in GRADES if score >= threshold)
 
     if score >= 70:
         verdict = (
-            f"Grade {grade}. {headline}. The edge is still there after shuffling the market, "
+            f"Grade {grade}. {headline}. The edge is still there after the permutation test, "
             "after charging for every variant tried, and after walking it forward."
         )
     elif score >= 55:
@@ -163,8 +197,8 @@ def reality_score(
         )
     else:
         verdict = (
-            f"Grade {grade}. {headline}. A randomly shuffled market produces results like this "
-            "often enough that there is nothing here to trade."
+            f"Grade {grade}. {headline}. The null — {permutation_label} — produces results "
+            "like this often enough that there is nothing here to trade."
         )
 
     return {

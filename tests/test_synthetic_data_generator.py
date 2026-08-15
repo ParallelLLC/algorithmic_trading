@@ -56,8 +56,8 @@ class TestSyntheticDataGenerator:
             assert col in df.columns
         
         # Check data types
-        assert df['timestamp'].dtype == 'datetime64[ns]'
-        assert df['symbol'].dtype == 'object'
+        assert pd.api.types.is_datetime64_any_dtype(df['timestamp'])
+        assert pd.api.types.is_string_dtype(df['symbol'])
         assert df['open'].dtype in ['float64', 'float32']
         assert df['high'].dtype in ['float64', 'float32']
         assert df['low'].dtype in ['float64', 'float32']

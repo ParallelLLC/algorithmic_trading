@@ -138,12 +138,92 @@ def _cmd_arena(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_portfolio(args: argparse.Namespace) -> int:
+    from .portfolio_lab import DEFAULT_UNIVERSE, PortfolioLabConfig, run_portfolio_lab
+
+    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()] if args.symbols else DEFAULT_UNIVERSE
+    cfg = PortfolioLabConfig(
+        symbols=symbols,
+        start=args.start,
+        end=args.end,
+        interval=args.interval,
+        source=args.source,
+        strategy=args.strategy,
+        params=_parse_params(args.param),
+        commission_bps=args.commission_bps,
+        slippage_bps=args.slippage_bps,
+        allow_short=not args.no_short,
+        rebalance=args.rebalance,
+        n_permutations=args.permutations,
+        wf_folds=args.folds,
+    )
+    progress = None if args.quiet else (lambda f, m: print(f"  [{f:5.0%}] {m}", file=sys.stderr))
+    report = run_portfolio_lab(cfg, progress=progress)
+
+    if args.json:
+        print(json.dumps({
+            "symbols": report.panel.symbols,
+            "strategy": report.strategy.key,
+            "params": report.params,
+            "metrics": report.backtest.metrics,
+            "p_value": report.permutation.p_value if report.permutation else None,
+            "deflated_sharpe": report.dsr.get("dsr"),
+            "pbo": report.pbo.get("pbo"),
+            "walkforward_efficiency": report.walkforward.get("efficiency"),
+            "attribution": report.attribution,
+            "survivorship": report.survivorship.__dict__,
+            "verdict": dict(report.verdict),
+        }, indent=2, default=str))
+        return 0
+
+    v, m, b = report.verdict, report.backtest.metrics, report.backtest.benchmark_metrics
+    bar = "=" * 72
+    print(f"\n{bar}")
+    print(f"  {report.strategy.name} on {len(report.panel.symbols)} symbols   [{report.panel.interval}]")
+    print(f"  {report.panel.index[0].date()} to {report.panel.index[-1].date()}  ·  "
+          f"{len(report.panel):,} bars  ·  rebalance {report.config.rebalance}")
+    print(bar)
+    print(f"  REALITY SCORE   {v['score']:.1f} / 100      GRADE  {v['grade']}")
+    print(f"  {v['headline']}")
+    print(bar)
+    print(f"  Total return      {m['total_return']:>9.1%}    equal weight {b['total_return']:>8.1%}")
+    print(f"  CAGR              {m['cagr']:>9.1%}    equal weight {b['cagr']:>8.1%}")
+    print(f"  Sharpe            {m['sharpe']:>9.2f}    equal weight {b['sharpe']:>8.2f}")
+    print(f"  Max drawdown      {m['max_drawdown']:>9.1%}")
+    print(f"  Gross / net exp.  {m.get('gross_exposure', 0):>9.2f} / {m.get('net_exposure', 0):.2f}")
+    print(f"  Avg positions     {m.get('avg_positions', 0):>9.1f}    turnover {m.get('turnover_ann', 0):.1f}x/yr")
+    print(bar)
+    if report.permutation:
+        print(f"  Name-shuffle p    {report.permutation.p_value:>9.3f}    "
+              f"({report.permutation.n_permutations} shuffles of which names got which weights)")
+    print(f"  Deflated Sharpe   {report.dsr.get('dsr', 0):>9.2f}    (after {report.trials.get('n', 1)} variants)")
+    pbo = report.pbo.get("pbo")
+    print(f"  Overfit prob.     {pbo:>9.2f}" if pbo == pbo else "  Overfit prob.           n/a")
+    print(f"  Walk-forward eff. {report.walkforward.get('efficiency', 0):>9.2f}")
+    if report.attribution.get("available"):
+        print(f"  Style alpha       {report.attribution['alpha_annual']:>9.1%}    "
+              f"t = {report.attribution['alpha_t_stat']:.2f}, R² = {report.attribution['r_squared']:.2f}")
+    print(f"  Survivorship      {report.survivorship.survival_rate:>9.0%}    "
+          f"({report.survivorship.n_delisted} of {report.survivorship.n_symbols} stopped trading)")
+    print(bar)
+    for flag in v["flags"]:
+        print(f"  ! {flag}")
+    if v["flags"]:
+        print(bar)
+    print(f"  {v['verdict']}\n")
+    return 0
+
+
 def _cmd_strategies(args: argparse.Namespace) -> int:
-    for key, strategy in REGISTRY.items():
-        params = ", ".join(f"{p.name}={p.default:g}" for p in strategy.params) or "no parameters"
-        print(f"  {key:<22} {strategy.name:<26} [{strategy.family}]")
-        print(f"  {'':<22} {strategy.description}")
-        print(f"  {'':<22} defaults: {params}\n")
+    from .cross_sectional import XS_REGISTRY
+
+    for title, registry in (("Single asset", REGISTRY), ("Cross-sectional", XS_REGISTRY)):
+        print(f"\n  {title}\n  {'-' * len(title)}")
+        for key, strategy in registry.items():
+            params = ", ".join(f"{p.name}={p.default:g}" for p in strategy.params) or "no parameters"
+            print(f"  {key:<22} {strategy.name:<28} [{strategy.family}]")
+            print(f"  {'':<22} {strategy.description}")
+            print(f"  {'':<22} defaults: {params}\n")
     return 0
 
 
@@ -173,6 +253,25 @@ def main(argv: List[str] | None = None) -> int:
     arena.add_argument("--json", action="store_true")
     arena.add_argument("--quiet", "-q", action="store_true")
     arena.set_defaults(func=_cmd_arena)
+
+    from .cross_sectional import XS_REGISTRY
+
+    portfolio = sub.add_parser(
+        "portfolio", help="Reality check for a cross-sectional (multi-asset) strategy."
+    )
+    _add_common(portfolio)
+    portfolio.add_argument(
+        "--symbols", default=None,
+        help="Comma-separated universe, e.g. SPY,QQQ,AAPL. Defaults to a 12-name universe.",
+    )
+    portfolio.add_argument("--strategy", default="xs_momentum", choices=sorted(XS_REGISTRY))
+    portfolio.add_argument("--param", action="append", metavar="NAME=VALUE")
+    portfolio.add_argument("--rebalance", default="M", help="D, W, M, Q, or a number of bars.")
+    portfolio.add_argument("--permutations", type=int, default=150)
+    portfolio.add_argument("--folds", type=int, default=4)
+    portfolio.add_argument("--json", action="store_true")
+    portfolio.add_argument("--quiet", "-q", action="store_true")
+    portfolio.set_defaults(func=_cmd_portfolio)
 
     listing = sub.add_parser("strategies", help="List the strategy zoo.")
     listing.set_defaults(func=_cmd_strategies)

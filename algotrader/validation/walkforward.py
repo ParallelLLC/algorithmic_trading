@@ -16,7 +16,7 @@ from ..engine import run_backtest
 from ..strategies import Strategy
 from ..types import CostModel
 
-__all__ = ["walk_forward"]
+__all__ = ["walk_forward", "walk_forward_panel"]
 
 
 def walk_forward(
@@ -123,6 +123,110 @@ def walk_forward(
         "param_instability": float(
             len({str(f["params"]) for f in folds}) / max(len(folds), 1)
         ),
+        "oos_returns": stitched,
+        "oos_equity": (1.0 + stitched).cumprod() if len(stitched) else stitched,
+        "note": "",
+    }
+
+
+def walk_forward_panel(
+    panel,
+    strategy,
+    n_folds: int = 4,
+    train_ratio: float = 0.7,
+    costs: Optional[CostModel] = None,
+    lag: int = 1,
+    gross_leverage: float = 1.0,
+    allow_short: bool = True,
+    rebalance: str = "M",
+    grid_limit: int = 16,
+    progress: Optional[Callable[[float, str], None]] = None,
+) -> Dict[str, object]:
+    """Walk-forward for cross-sectional strategies over a :class:`Panel`.
+
+    Same contract as :func:`walk_forward`: tune on the training window, trade
+    the next window blind, roll on. Signals are generated over train+test
+    together so the indicators are warm at the fold boundary, then evaluated
+    only on the test slice -- the panel equivalent of the single-asset path.
+    """
+    from ..portfolio import rebalance_schedule, run_portfolio_backtest
+
+    costs = costs or CostModel()
+    grid = strategy.grid(limit=grid_limit)
+    n = len(panel)
+
+    if n < 250 or n_folds < 2:
+        return {"folds": [], "note": "Not enough history for walk-forward analysis."}
+
+    block = min(int(n / (1 + (n_folds - 1) * (1 - train_ratio))), n)
+    train_len = int(block * train_ratio)
+    test_len = block - train_len
+    if train_len < 100 or test_len < 20:
+        return {"folds": [], "note": "Not enough history for walk-forward analysis."}
+
+    folds: List[Dict[str, object]] = []
+    oos_returns: List[pd.Series] = []
+
+    for k in range(n_folds):
+        start = k * test_len
+        train = panel.slice(panel.index[start], panel.index[min(start + train_len - 1, n - 1)])
+        test_start = start + train_len
+        if test_start + 20 > n:
+            break
+        test_end = min(test_start + test_len, n) - 1
+        test = panel.slice(panel.index[test_start], panel.index[test_end])
+        if len(test) < 20:
+            break
+
+        best_params, best_sharpe = None, -np.inf
+        for params in grid:
+            weights = strategy.generate(train, params)
+            sharpe = run_portfolio_backtest(
+                train, weights, costs=costs, lag=lag, gross_leverage=gross_leverage,
+                allow_short=allow_short, rebalance_on=rebalance_schedule(train.index, rebalance),
+            ).sharpe
+            if sharpe > best_sharpe:
+                best_params, best_sharpe = params, sharpe
+
+        combined = panel.slice(panel.index[start], panel.index[test_end])
+        weights = strategy.generate(combined, best_params).loc[test.index]
+        oos = run_portfolio_backtest(
+            test, weights, costs=costs, lag=lag, gross_leverage=gross_leverage,
+            allow_short=allow_short, rebalance_on=rebalance_schedule(test.index, rebalance),
+        )
+
+        folds.append({
+            "fold": k + 1,
+            "train_start": str(train.index[0].date()),
+            "train_end": str(train.index[-1].date()),
+            "test_start": str(test.index[0].date()),
+            "test_end": str(test.index[-1].date()),
+            "params": best_params,
+            "is_sharpe": float(best_sharpe),
+            "oos_sharpe": float(oos.sharpe),
+            "oos_return": float(oos.metrics.get("total_return", 0.0)),
+            "oos_max_dd": float(oos.metrics.get("max_drawdown", 0.0)),
+        })
+        oos_returns.append(oos.returns)
+        if progress is not None:
+            progress((k + 1) / n_folds, f"Walk-forward fold {k + 1}/{n_folds}")
+
+    if not folds:
+        return {"folds": [], "note": "Not enough history for walk-forward analysis."}
+
+    is_sharpes = np.array([f["is_sharpe"] for f in folds], dtype=float)
+    oos_sharpes = np.array([f["oos_sharpe"] for f in folds], dtype=float)
+    stitched = pd.concat(oos_returns) if oos_returns else pd.Series(dtype=float)
+    stitched = stitched[~stitched.index.duplicated(keep="first")].sort_index()
+    mean_is, mean_oos = float(np.mean(is_sharpes)), float(np.mean(oos_sharpes))
+
+    return {
+        "folds": folds,
+        "mean_is_sharpe": mean_is,
+        "mean_oos_sharpe": mean_oos,
+        "efficiency": float(mean_oos / mean_is) if mean_is > 1e-9 else 0.0,
+        "oos_win_rate": float(np.mean(oos_sharpes > 0)),
+        "param_instability": float(len({str(f["params"]) for f in folds}) / max(len(folds), 1)),
         "oos_returns": stitched,
         "oos_equity": (1.0 + stitched).cumprod() if len(stitched) else stitched,
         "note": "",

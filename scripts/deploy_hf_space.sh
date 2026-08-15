@@ -46,7 +46,8 @@ find ./algotrader -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || t
 mkdir -p tests
 cp "$REPO_ROOT/tests/test_v2_engine.py" \
    "$REPO_ROOT/tests/test_v2_validation.py" \
-   "$REPO_ROOT/tests/test_v2_strategies.py" tests/
+   "$REPO_ROOT/tests/test_v2_strategies.py" \
+   "$REPO_ROOT/tests/test_v2_portfolio.py" tests/
 
 echo "==> Files staged:"
 find . -path ./.git -prune -o -type f -print | sed 's|^\./|  |'

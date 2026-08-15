@@ -132,7 +132,7 @@ class TestDataIngestion:
                 
                 assert isinstance(result, pd.DataFrame)
                 assert len(result) == len(sample_csv_data)
-                assert result['timestamp'].dtype == 'datetime64[ns]'
+                assert pd.api.types.is_datetime64_any_dtype(result['timestamp'])
                 
             finally:
                 os.unlink(tmp_file.name)
@@ -289,7 +289,7 @@ class TestDataIngestion:
                 result = _load_csv_data(config)
                 
                 # Check that timestamp is converted to datetime
-                assert result['timestamp'].dtype == 'datetime64[ns]'
+                assert pd.api.types.is_datetime64_any_dtype(result['timestamp'])
                 
             finally:
                 os.unlink(tmp_file.name)

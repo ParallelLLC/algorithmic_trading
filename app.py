@@ -19,6 +19,8 @@ import pandas as pd
 from algotrader import __version__
 from algotrader.charts import (
     arena_chart,
+    attribution_chart,
+    cross_permutation_chart,
     drawdown_chart,
     empty_figure,
     equity_chart,
@@ -26,16 +28,22 @@ from algotrader.charts import (
     permutation_chart,
     score_chart,
     walkforward_chart,
+    weights_chart,
 )
+from algotrader.cross_sectional import XS_REGISTRY, get_xs_strategy
 from algotrader.data import DEFAULT_UNIVERSE
 from algotrader.lab import LabConfig, run_arena, run_lab
+from algotrader.portfolio_lab import DEFAULT_UNIVERSE as PORTFOLIO_UNIVERSE
+from algotrader.portfolio_lab import PortfolioLabConfig, run_portfolio_lab
 from algotrader.strategies import REGISTRY, get_strategy
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("app")
 
 MAX_PARAMS = 3
+MAX_XS_PARAMS = 4
 STRATEGY_CHOICES = [(s.name, key) for key, s in REGISTRY.items()]
+XS_STRATEGY_CHOICES = [(s.name, key) for key, s in XS_REGISTRY.items()]
 
 GRADE_COLORS = {
     "A": "#0ca30c",
@@ -163,6 +171,207 @@ def _tiles(report) -> str:
         for label, value, sub in cells
     )
     return f'<div class="tiles">{tiles}</div>'
+
+
+def xs_param_controls(strategy_key: str):
+    """Re-label the shared portfolio sliders for the selected strategy."""
+    strategy = get_xs_strategy(strategy_key)
+    updates = []
+    for i in range(MAX_XS_PARAMS):
+        if i < len(strategy.params):
+            spec = strategy.params[i]
+            updates.append(
+                gr.update(
+                    visible=True,
+                    label=spec.label,
+                    value=spec.cast(spec.default),
+                    minimum=spec.minimum if spec.minimum is not None else min(spec.grid),
+                    maximum=spec.maximum if spec.maximum is not None else max(spec.grid),
+                    step=spec.step or (1 if spec.kind == "int" else 0.05),
+                )
+            )
+        else:
+            updates.append(gr.update(visible=False))
+    return tuple(updates)
+
+
+def _portfolio_card(report) -> str:
+    v = report.verdict
+    color = GRADE_COLORS.get(v["grade"], "#898781")
+    panel = report.panel
+    survivorship = report.survivorship
+
+    provenance = (
+        f'<div class="provenance">{len(panel.symbols)} symbols · '
+        f"{panel.index[0].date()} to {panel.index[-1].date()} · {len(panel):,} bars · "
+        f"rebalance {report.config.rebalance}</div>"
+    )
+    if panel.note:
+        provenance += f'<div class="provenance sim">⚠ {panel.note}</div>'
+    # The survivorship note is already in the flag list when it is a problem;
+    # repeating it under the tiles just makes the card noisy.
+
+    flags = "".join(f"<li>{f}</li>" for f in v["flags"])
+    flags_html = f'<ul class="flags">{flags}</ul>' if flags else ""
+
+    return f"""
+<div class="score-card">
+  <div class="score-badge">
+    <div class="grade" style="color:{color}">{v['grade']}</div>
+    <div class="num">{v['score']} / 100</div>
+  </div>
+  <div class="score-body">
+    <h3>{report.strategy.name} across {len(panel.symbols)} names</h3>
+    <p>{v['verdict']}</p>
+  </div>
+</div>
+{flags_html}
+{provenance}
+"""
+
+
+def _portfolio_tiles(report) -> str:
+    m = report.backtest.metrics
+    b = report.backtest.benchmark_metrics
+    perm = report.permutation
+    attribution = report.attribution
+    pbo = report.pbo.get("pbo")
+
+    cells = [
+        ("Total return", _fmt_pct(m.get("total_return", 0)), f"equal weight {_fmt_pct(b.get('total_return', 0))}"),
+        ("Sharpe", f"{m.get('sharpe', 0):.2f}", f"equal weight {b.get('sharpe', 0):.2f}"),
+        ("Max drawdown", _fmt_pct(m.get("max_drawdown", 0)), f"{m.get('time_under_water_yrs', 0):.1f}y under water"),
+        ("Name-shuffle p", f"{perm.p_value:.3f}" if perm else "—", "vs same book, random names"),
+        ("Deflated Sharpe", f"{report.dsr.get('dsr', 0):.2f}", f"after {report.trials.get('n', 1)} variants"),
+        (
+            "Style alpha",
+            f"{attribution.get('alpha_annual', 0) * 100:,.1f}%" if attribution.get("available") else "n/a",
+            f"t = {attribution.get('alpha_t_stat', 0):.1f}" if attribution.get("available") else "not available",
+        ),
+        ("Overfit prob.", f"{pbo:.0%}" if pbo is not None and pbo == pbo else "n/a", "in-sample winner fails OOS"),
+        ("Gross / net", f"{m.get('gross_exposure', 0):.2f}", f"net {m.get('net_exposure', 0):+.2f}"),
+        ("Avg positions", f"{m.get('avg_positions', 0):.1f}", f"{m.get('turnover_ann', 0):.1f}x turnover/yr"),
+        (
+            "Survivorship",
+            f"{report.survivorship.survival_rate:.0%}",
+            f"{report.survivorship.n_delisted} of {report.survivorship.n_symbols} delisted",
+        ),
+    ]
+    tiles = "".join(
+        f'<div class="tile"><div class="label">{label}</div>'
+        f'<div class="value">{value}</div><div class="sub">{sub}</div></div>'
+        for label, value, sub in cells
+    )
+    return f'<div class="tiles">{tiles}</div>'
+
+
+def _portfolio_detail(report) -> str:
+    attribution, survivorship, wf = report.attribution, report.survivorship, report.walkforward
+    lines = ["### Reading the evidence", ""]
+
+    if report.permutation:
+        lines += [
+            f"**Did it pick the right names?** We rebuilt the book "
+            f"{report.permutation.n_permutations} times, keeping every date's gross exposure, net "
+            f"exposure and position count exactly as they were, and only randomising *which* asset "
+            f"got which weight. The real book's Sharpe of {report.permutation.observed:.2f} sits at "
+            f"the {report.permutation.percentile:.0f}th percentile of that null "
+            f"(p = {report.permutation.p_value:.3f}). This test deliberately ignores trading costs: "
+            "a shuffled book churns far more than a real one, and charging it for that would "
+            "flatter the strategy for reasons unrelated to skill.",
+            "",
+        ]
+    if attribution.get("available"):
+        lines += [f"**Is it alpha or is it beta?** {attribution['note']}", ""]
+    lines += [f"**Survivorship.** {survivorship.note}", ""]
+    if survivorship.delisted_symbols:
+        lines += [f"Stopped trading during the sample: `{'`, `'.join(survivorship.delisted_symbols)}`.", ""]
+    if wf.get("folds"):
+        lines += [
+            f"**Walk-forward.** Across {len(wf['folds'])} folds the tuned in-sample Sharpe averaged "
+            f"{wf.get('mean_is_sharpe', 0):.2f} against {wf.get('mean_oos_sharpe', 0):.2f} blind out "
+            f"of sample — {wf.get('efficiency', 0):.0%} efficiency, with "
+            f"{wf.get('oos_win_rate', 0):.0%} of folds profitable.",
+            "",
+        ]
+    lines += [
+        f"**Costs.** Sharpe is {report.cost_stress.get('sharpe_1x', 0):.2f} at the modelled friction "
+        f"and {report.cost_stress.get('sharpe_3x', 0):.2f} at triple it "
+        f"({report.cost_stress.get('ratio', 0):.0%} retained), on turnover of "
+        f"{report.backtest.metrics.get('turnover_ann', 0):.1f}x a year.",
+        "",
+        "> Past performance, simulated or otherwise, does not predict future returns. "
+        "This is research tooling, not investment advice.",
+    ]
+    return "\n".join(lines)
+
+
+def analyse_portfolio(
+    symbols: str,
+    start: str,
+    end: str,
+    strategy_key: str,
+    p1: float,
+    p2: float,
+    p3: float,
+    p4: float,
+    rebalance: str,
+    commission: float,
+    slippage: float,
+    allow_short: bool,
+    gross_leverage: float,
+    max_weight: float,
+    n_permutations: int,
+    progress=gr.Progress(),
+):
+    """Portfolio Lab handler. Like the single-asset one, it never raises into the UI."""
+    try:
+        universe = [s.strip().upper() for s in (symbols or "").replace("\n", ",").split(",") if s.strip()]
+        if len(universe) < 4:
+            raise ValueError(
+                "A cross-sectional strategy needs at least 4 symbols — it ranks names against "
+                "each other, and there is nothing to rank in a list this short."
+            )
+        strategy = get_xs_strategy(strategy_key)
+        values = (p1, p2, p3, p4)
+        params = {
+            spec.name: spec.cast(values[i])
+            for i, spec in enumerate(strategy.params[:MAX_XS_PARAMS])
+        }
+        cfg = PortfolioLabConfig(
+            symbols=universe,
+            start=start or "2015-01-01",
+            end=end or None,
+            strategy=strategy_key,
+            params=params,
+            commission_bps=float(commission),
+            slippage_bps=float(slippage),
+            allow_short=bool(allow_short),
+            gross_leverage=float(gross_leverage),
+            max_weight=float(max_weight) if max_weight else None,
+            rebalance=rebalance,
+            n_permutations=int(n_permutations),
+        )
+        report = run_portfolio_lab(cfg, progress=lambda f, m: progress(f, desc=m))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Portfolio lab run failed")
+        message = (
+            f'<div class="score-card"><div class="score-body"><h3>Could not run that</h3>'
+            f"<p>{exc}</p></div></div>"
+        )
+        blank = empty_figure("No results.")
+        return message, "", blank, blank, blank, blank, blank, ""
+
+    return (
+        _portfolio_card(report),
+        _portfolio_tiles(report),
+        cross_permutation_chart(report),
+        equity_chart(report, benchmark_label="Equal weight"),
+        attribution_chart(report.attribution),
+        weights_chart(report),
+        score_chart(report.verdict, significance_label="Picks the right names"),
+        _portfolio_detail(report),
+    )
 
 
 def _detail_markdown(report) -> str:
@@ -512,6 +721,86 @@ def build_app() -> gr.Blocks:
                     ],
                 )
 
+            with gr.Tab("Portfolio"):
+                gr.Markdown(
+                    "Cross-sectional strategies rank names against each other, so they get a "
+                    "harder null: we keep every date's gross exposure, net exposure and position "
+                    "count exactly as they were and randomise only **which name got which "
+                    "weight**. A book that beats that is picking names. One that doesn't was "
+                    "being paid for style exposure you can buy in an ETF — which the factor "
+                    "regression below measures directly."
+                )
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        xs_symbols = gr.Textbox(
+                            value=", ".join(PORTFOLIO_UNIVERSE),
+                            label="Universe",
+                            lines=3,
+                            info="Comma-separated. At least 4 names — fewer cannot be ranked.",
+                        )
+                        with gr.Row():
+                            xs_start = gr.Textbox(value="2015-01-01", label="Start", scale=1)
+                            xs_end = gr.Textbox(value="", label="End", scale=1)
+
+                        xs_strategy = gr.Dropdown(
+                            choices=XS_STRATEGY_CHOICES, value="xs_momentum", label="Strategy"
+                        )
+                        xs_note = gr.Markdown(get_xs_strategy("xs_momentum").description)
+                        xs_sliders = [
+                            gr.Slider(label=f"Parameter {i + 1}", visible=False, minimum=0, maximum=100)
+                            for i in range(MAX_XS_PARAMS)
+                        ]
+                        xs_rebalance = gr.Radio(
+                            ["D", "W", "M", "Q"], value="M", label="Rebalance",
+                            info="Daily rebalancing of a real book is rarely affordable.",
+                        )
+
+                        with gr.Accordion("Costs, limits and testing", open=False):
+                            xs_commission = gr.Slider(0, 20, value=1, step=0.5, label="Commission (bps)")
+                            xs_slippage = gr.Slider(0, 50, value=2, step=0.5, label="Slippage (bps)")
+                            xs_short = gr.Checkbox(value=True, label="Allow short positions")
+                            xs_leverage = gr.Slider(0.1, 3.0, value=1.0, step=0.1, label="Gross leverage cap")
+                            xs_maxw = gr.Slider(0.0, 1.0, value=0.25, step=0.05, label="Max weight per name")
+                            xs_perms = gr.Slider(
+                                0, 500, value=150, step=25, label="Name shuffles",
+                            )
+
+                        xs_button = gr.Button("Run portfolio check", variant="primary", size="lg")
+
+                    with gr.Column(scale=2):
+                        xs_verdict = gr.HTML(
+                            '<div class="score-card"><div class="score-body">'
+                            "<h3>Nothing tested yet</h3><p>Pick a universe and a ranking rule, then "
+                            "hit <b>Run portfolio check</b>.</p></div></div>"
+                        )
+                        xs_tiles = gr.HTML("")
+
+                xs_perm_plot = gr.Plot(value=empty_figure("The name-shuffle test appears here.", height=320))
+                xs_equity_plot = gr.Plot(value=empty_figure())
+                with gr.Row():
+                    xs_attr_plot = gr.Plot(value=empty_figure(height=280))
+                    xs_weights_plot = gr.Plot(value=empty_figure(height=240))
+                xs_components_plot = gr.Plot(value=empty_figure(height=260))
+                xs_detail = gr.Markdown("")
+
+                xs_strategy.change(
+                    fn=xs_param_controls, inputs=xs_strategy, outputs=xs_sliders
+                ).then(
+                    fn=lambda k: get_xs_strategy(k).description, inputs=xs_strategy, outputs=xs_note
+                )
+                xs_button.click(
+                    fn=analyse_portfolio,
+                    inputs=[
+                        xs_symbols, xs_start, xs_end, xs_strategy, *xs_sliders,
+                        xs_rebalance, xs_commission, xs_slippage, xs_short,
+                        xs_leverage, xs_maxw, xs_perms,
+                    ],
+                    outputs=[
+                        xs_verdict, xs_tiles, xs_perm_plot, xs_equity_plot,
+                        xs_attr_plot, xs_weights_plot, xs_components_plot, xs_detail,
+                    ],
+                )
+
             with gr.Tab("Arena"):
                 gr.Markdown(
                     "Race every strategy on the same market, ranked by **evidence** rather than "
@@ -544,6 +833,7 @@ def build_app() -> gr.Blocks:
         )
 
         demo.load(fn=param_controls, inputs=strategy, outputs=param_sliders)
+        demo.load(fn=xs_param_controls, inputs=xs_strategy, outputs=xs_sliders)
 
     return demo
 

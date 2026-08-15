@@ -62,8 +62,15 @@ def run_backtest(
 
     gross = position * asset_ret
 
-    traded = position.diff()
-    traded.iloc[0] = position.iloc[0]
+    # Turnover is measured against the *drifted* weight, not the previous
+    # target. Holding a full-notional long needs no rebalancing (the position
+    # and the portfolio grow together), but a short does: lose 10% on a 100%
+    # short and the weight drifts to -82%, so staying at -100% costs a trade.
+    # See portfolio.py for the same formula in matrix form.
+    growth = (1.0 + gross).replace(0.0, np.nan)
+    drifted = (position * (1.0 + asset_ret)) / growth
+    previous = drifted.shift(1).fillna(0.0)
+    traded = position - previous
     trade_cost = traded.abs() * (costs.one_way_bps / 1e4)
 
     borrow_cost = position.clip(upper=0.0).abs() * (costs.short_borrow_bps / 1e4) / ppy

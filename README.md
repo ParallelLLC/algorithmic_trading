@@ -17,6 +17,12 @@ unchanged and still lives here — see [docs/AGENTIC_SYSTEM_V1.md](docs/AGENTIC_
 
 ---
 
+## Two labs
+
+**The Lab** validates a timing rule on one asset. **The Portfolio Lab** validates a
+cross-sectional book that ranks many names — and it asks three harder questions,
+because a long-short book fails in ways a timing rule cannot.
+
 ## The four ways a backtest lies
 
 | The lie | The test | Where |
@@ -54,6 +60,56 @@ that did as well or better.
 Block mode resamples contiguous chunks instead of single bars, preserving
 short-horizon momentum and volatility clustering — a harder null that trend
 strategies deserve to be held to.
+
+## Cross-sectional books get a harder null
+
+Shuffling the price path is the right null for a timing rule and the *wrong* one for
+a book that ranks names: it destroys the market's whole correlation structure, and
+almost any long-short book clears a null that weak.
+
+So the Portfolio Lab permutes the **weights across assets within each date**. Every
+calendar effect survives. Every correlation between names survives. Each date's gross
+exposure, net exposure and position count survive *exactly*. The only thing destroyed
+is the link between the strategy's choice and the asset it chose.
+
+A book that beats that null is picking names. One that doesn't was being paid for
+market exposure or a style tilt — which the factor regression measures directly:
+
+| Question | Test |
+|---|---|
+| Did it pick the right names? | Within-date weight permutation |
+| Is it alpha, or beta you can buy for 3bps? | Style regression (market, momentum, low-vol, reversal, liquidity) with White standard errors |
+| Does the universe contain the losers? | Survivorship measured, not assumed |
+
+That last one is not optional. A universe where every name is still trading after ten
+years was chosen after the fact, and every result computed on it is an upper bound.
+The Panel measures survival directly and the Reality Score caps at 60 when it finds
+none.
+
+```python
+from algotrader import PortfolioLabConfig, run_portfolio_lab
+
+report = run_portfolio_lab(PortfolioLabConfig(
+    symbols=["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "GLD", "TLT"],
+    strategy="xs_momentum",
+    rebalance="M",
+))
+print(report.verdict["grade"], report.permutation.p_value)
+print(report.attribution["note"])
+print(report.survivorship.note)
+```
+
+```bash
+python -m algotrader.cli portfolio --symbols SPY,QQQ,AAPL,MSFT,NVDA --strategy xs_momentum
+```
+
+## Turnover is measured against drift, not against the last target
+
+Holding 50% of a book in a name that doubles leaves you at 67% without trading. A
+backtest that charges turnover as `|target[t] - target[t-1]|` understates the cost of
+doing nothing and overstates the cost of rebalancing. Both engines measure turnover
+against the *drifted* weight instead, and a rebalance schedule (`D`/`W`/`M`/`Q`) lets a
+monthly book drift between dates rather than paying daily to stand still.
 
 ## No look-ahead, by construction
 
@@ -119,9 +175,12 @@ deterministic and network-free.
 
 ## The strategy zoo
 
-`buy_and_hold` · `sma_cross` · `ema_cross` · `macd_trend` · `rsi_reversion` ·
-`bollinger_reversion` · `donchian_breakout` · `momentum` · `vol_target_momentum` ·
-`channel_trend` · `coin_flip`
+Single asset: `buy_and_hold` · `sma_cross` · `ema_cross` · `macd_trend` ·
+`rsi_reversion` · `bollinger_reversion` · `donchian_breakout` · `momentum` ·
+`vol_target_momentum` · `channel_trend` · `coin_flip`
+
+Cross-sectional: `equal_weight` · `xs_momentum` · `xs_reversal` · `low_volatility` ·
+`xs_value_proxy` · `xs_random`
 
 Buy & hold and the coin flip are controls, and they stay in the arena on purpose: a
 leaderboard without a control group is marketing, not measurement.
@@ -157,7 +216,7 @@ carries the full v1 stack for CI, Docker and the FinRL agents.
 ## Tests
 
 ```bash
-python -m pytest tests/test_v2_*.py -q     # 111 tests, ~15s, no network
+python -m pytest tests/test_v2_*.py -q     # 162 tests, ~25s, no network
 ```
 
 The validation tests check both directions, which is the part that matters: the
@@ -165,6 +224,12 @@ statistics must reject noise **and** detect a real edge. They build a market wit
 genuine serial correlation and assert that the permutation test finds it, that PBO
 stays near 0.5 on pure noise and drops below 0.15 when one variant is genuinely
 better, and that walk-forward efficiency survives.
+
+The cross-sectional null is held to the same standard, and it is calibrated: on a
+universe with no cross-sectional structure it returns p ≈ 0.5, and its power rises
+monotonically with the size of the injected effect. The tests also assert the
+permutation preserves each date's gross exposure, net exposure and position count
+exactly — if it did not, the null would be testing something else.
 
 ## References
 
