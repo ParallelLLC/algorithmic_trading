@@ -1,3 +1,35 @@
+---
+license: apache-2.0
+language:
+  - en
+library_name: pytorch
+pretty_name: Algorithmic Trading
+tags:
+  - finance
+  - algorithmic-trading
+  - quantitative-finance
+  - backtesting
+  - reinforcement-learning
+  - pytorch
+  - yfinance
+---
+
+---
+license: apache-2.0
+language:
+  - en
+library_name: pytorch
+pretty_name: Algorithmic Trading
+tags:
+  - finance
+  - algorithmic-trading
+  - quantitative-finance
+  - backtesting
+  - reinforcement-learning
+  - pytorch
+  - yfinance
+---
+
 # Algorithmic Trading
 
 Parallel LLC. Two layers in one repository:
