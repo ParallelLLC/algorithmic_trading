@@ -27,6 +27,8 @@ def load_data(config: Dict[str, Any]) -> Optional[pd.DataFrame]:
             return _load_csv_data(config)
         elif data_source == 'synthetic':
             return _load_synthetic_data(config)
+        elif data_source == 'yahoo':
+            return _load_yahoo_data(config)
         else:
             logger.error(f"Unsupported data source: {data_source}")
             return None
@@ -74,6 +76,30 @@ def _load_alpaca_data(config: Dict[str, Any]) -> Optional[pd.DataFrame]:
     except Exception as e:
         logger.error(f"Error loading Alpaca data: {e}")
         return None
+
+def _load_yahoo_data(config: Dict[str, Any]) -> Optional[pd.DataFrame]:
+    """Load OHLCV bars from Yahoo Finance via yfinance. Does not replace Alpaca."""
+    try:
+        from .yahoo_data_stream import YahooDataStream
+
+        stream = YahooDataStream(config)
+        trading = config.get('trading', {})
+        symbol = trading.get('symbol') or (trading.get('symbols') or ['AAPL'])[0]
+        yahoo_cfg = config.get('yahoo', {})
+        start_date = yahoo_cfg.get('start_date', '2024-01-01')
+        end_date = yahoo_cfg.get('end_date', '2026-12-31')
+
+        data = stream.get_historical_data(symbol, start_date, end_date)
+        if data is None or data.empty:
+            logger.error("No Yahoo data returned for %s", symbol)
+            return None
+
+        logger.info("Loaded %s Yahoo bars for %s", len(data), symbol)
+        return data
+    except Exception as e:
+        logger.error("Error loading Yahoo data: %s", e)
+        return None
+
 
 def _load_csv_data(config: Dict[str, Any]) -> Optional[pd.DataFrame]:
     """Load market data from CSV file"""

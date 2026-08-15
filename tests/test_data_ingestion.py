@@ -95,7 +95,25 @@ class TestDataIngestion:
             
             assert isinstance(result, pd.DataFrame)
             mock_generate.assert_called_once_with(config)
-    
+
+    def test_load_data_yahoo_type(self, config):
+        config['data_source']['type'] = 'yahoo'
+        mock_df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=10, freq='D'),
+            'open': [150] * 10,
+            'high': [155] * 10,
+            'low': [145] * 10,
+            'close': [152] * 10,
+            'volume': [1000] * 10,
+        })
+        mock_stream = MagicMock()
+        mock_stream.get_historical_data.return_value = mock_df
+        with patch('agentic_ai_system.yahoo_data_stream.YahooDataStream', return_value=mock_stream):
+            result = load_data(config)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 10
+        mock_stream.get_historical_data.assert_called_once()
+
     def test_load_data_invalid_type(self, config):
         """Test loading data with invalid type"""
         config['data_source']['type'] = 'invalid_type'

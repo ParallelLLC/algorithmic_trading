@@ -11,7 +11,7 @@ The CI/CD pipeline provides automated quality assurance, testing, deployment, an
 ### 1. **Main CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
 
 **Triggers:**
-- Push to `main` or `develop` branches
+- Push to `main` or `dev` branches
 - Pull requests to `main`
 - Release creation
 

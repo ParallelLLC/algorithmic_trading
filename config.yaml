@@ -29,6 +29,14 @@ alpaca:
   websocket_url: 'wss://stream.data.alpaca.markets/v2/iex'  # WebSocket URL
   account_type: 'paper'  # 'paper' or 'live'
 
+# Yahoo Finance (optional). Set data_source.type: 'yahoo' to use.
+# Unofficial API, typically delayed; 1m lookback is ~7 days.
+yahoo:
+  poll_interval_seconds: 60
+  auto_adjust: false
+  start_date: '2024-01-01'
+  end_date: '2026-12-31'
+
 # Synthetic data generation settings
 synthetic_data:
   base_price: 150.0
