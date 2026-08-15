@@ -33,7 +33,13 @@ alpaca:
 # Unofficial API, typically delayed; 1m lookback is ~7 days.
 yahoo:
   poll_interval_seconds: 60
-  auto_adjust: false
+  # Keep true. With auto_adjust off, Yahoo returns raw Close and every stock
+  # split reads as a crash (NVDA's June 2024 10:1 becomes a -90% bar).
+  auto_adjust: true
+  # Yahoo returns the still-forming period as an ordinary row. Emitting it would
+  # trade on a close that has not happened yet.
+  emit_incomplete_bars: false
+  max_backoff_seconds: 900
   start_date: '2024-01-01'
   end_date: '2026-12-31'
 

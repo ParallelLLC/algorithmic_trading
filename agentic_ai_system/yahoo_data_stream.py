@@ -1,4 +1,5 @@
 import logging
+import random
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
@@ -41,6 +42,26 @@ _MAX_LOOKBACK = {
     '3mo': None,
 }
 
+# How long each bar covers. Used to tell a finished bar from the one still
+# forming right now -- see _drop_incomplete.
+_INTERVAL_DURATION = {
+    '1m': pd.Timedelta(minutes=1),
+    '2m': pd.Timedelta(minutes=2),
+    '5m': pd.Timedelta(minutes=5),
+    '15m': pd.Timedelta(minutes=15),
+    '30m': pd.Timedelta(minutes=30),
+    '60m': pd.Timedelta(hours=1),
+    '90m': pd.Timedelta(minutes=90),
+    '1h': pd.Timedelta(hours=1),
+    '1d': pd.Timedelta(days=1),
+    '5d': pd.Timedelta(days=5),
+    '1wk': pd.Timedelta(weeks=1),
+}
+
+# A daily-or-slower bar that moves more than this is almost always an
+# unadjusted split rather than a real move (NVDA's 2024 10:1 shows up as -90%).
+_SPLIT_SUSPECT_MOVE = 0.35
+
 
 class YahooDataStream:
     """
@@ -62,8 +83,13 @@ class YahooDataStream:
             self.symbols = ['AAPL']
         yahoo_cfg = config.get('yahoo', {})
         self.poll_interval = int(yahoo_cfg.get('poll_interval_seconds', 60))
-        self.auto_adjust = bool(yahoo_cfg.get('auto_adjust', False))
+        # Adjusted by default. With auto_adjust off, Yahoo returns raw Close and
+        # every split reads as a crash: NVDA's June 2024 10:1 becomes a -90% bar.
+        self.auto_adjust = bool(yahoo_cfg.get('auto_adjust', True))
+        self.emit_incomplete_bars = bool(yahoo_cfg.get('emit_incomplete_bars', False))
+        self.max_backoff = int(yahoo_cfg.get('max_backoff_seconds', 900))
         self.interval = self._map_interval(config.get('trading', {}).get('timeframe', '1d'))
+        self._consecutive_failures = 0
         self.data_callbacks: List[Callable] = []
         self.is_connected = False
         self.data_buffer: Dict[str, Dict[str, Any]] = {}
@@ -80,11 +106,21 @@ class YahooDataStream:
                 'latest_bar': None,
             }
 
+        if not self.auto_adjust:
+            logger.warning(
+                "yahoo.auto_adjust is false: prices are NOT split- or dividend-adjusted. "
+                "Every split will appear as a large single-bar loss and any backtest "
+                "spanning one will be wrong."
+            )
+
         logger.info(
-            "Initialized YahooDataStream symbols=%s interval=%s poll_interval=%ss",
+            "Initialized YahooDataStream symbols=%s interval=%s poll_interval=%ss "
+            "auto_adjust=%s emit_incomplete_bars=%s",
             self.symbols,
             self.interval,
             self.poll_interval,
+            self.auto_adjust,
+            self.emit_incomplete_bars,
         )
 
     @staticmethod
@@ -102,7 +138,9 @@ class YahooDataStream:
             return
 
         self._stop_event.clear()
-        self._poll_once()
+        # Seed the backoff from the first attempt: if we are already being
+        # throttled, the loop should start backed off rather than hammering.
+        self._consecutive_failures = 0 if self._poll_once() else 1
         self._poll_thread = threading.Thread(target=self._poll_loop, name='yahoo-poll', daemon=True)
         self._poll_thread.start()
         self.is_connected = True
@@ -137,7 +175,8 @@ class YahooDataStream:
         start, end = self._clamp_window(start_date, end_date, self.interval)
         try:
             raw = self._download(symbol, start=start, end=end, interval=self.interval)
-            df = self._normalize_ohlcv(raw)
+            df = self._drop_incomplete(self._normalize_ohlcv(raw))
+            self._warn_if_unadjusted(symbol, df)
             if df.empty:
                 logger.warning("No Yahoo historical data for %s between %s and %s", symbol, start, end)
             else:
@@ -173,8 +212,6 @@ class YahooDataStream:
         }
 
     def generate_simulated_data(self, symbol: str) -> Dict[str, Any]:
-        import random
-
         latest_data = self.get_latest_data(symbol)
         base_price = 150.0
         if latest_data.get('latest_bar'):
@@ -197,13 +234,40 @@ class YahooDataStream:
         return simulated_bar
 
     def _poll_loop(self) -> None:
-        while not self._stop_event.wait(self.poll_interval):
+        delay = self.poll_interval
+        while not self._stop_event.wait(delay):
             try:
-                self._poll_once()
+                succeeded = self._poll_once()
             except Exception as e:
                 logger.error("Yahoo poll loop error: %s", e, exc_info=True)
+                succeeded = False
+            self._consecutive_failures = 0 if succeeded else self._consecutive_failures + 1
+            delay = self._next_delay()
 
-    def _poll_once(self) -> None:
+    def _next_delay(self) -> float:
+        """Poll interval, backed off exponentially while Yahoo is refusing us.
+
+        Yahoo rate-limits aggressively and an unofficial API gives no
+        Retry-After, so a fixed interval just keeps you throttled. Jitter stops
+        several symbols (or several deployments) resynchronising after an outage.
+        """
+        if self._consecutive_failures == 0:
+            base = float(self.poll_interval)
+        else:
+            base = min(
+                self.poll_interval * (2 ** self._consecutive_failures),
+                float(self.max_backoff),
+            )
+            logger.warning(
+                "Yahoo poll failed %s time(s) in a row; next attempt in ~%.0fs",
+                self._consecutive_failures,
+                base,
+            )
+        return max(1.0, base * random.uniform(0.8, 1.2))
+
+    def _poll_once(self) -> bool:
+        """Fetch and ingest one round of bars. Returns True if any symbol succeeded."""
+        any_success = False
         for symbol in self.symbols:
             try:
                 raw = self._download(symbol, period='5d', interval=self.interval)
@@ -212,14 +276,60 @@ class YahooDataStream:
                     logger.warning("Yahoo poll returned no bars for %s", symbol)
                     continue
                 self._ingest_new_bars(symbol, df)
+                any_success = True
             except Exception as e:
                 logger.error("Yahoo poll failed for %s: %s", symbol, e)
+        return any_success
+
+    def _warn_if_unadjusted(self, symbol: str, df: pd.DataFrame) -> int:
+        """Flag single-bar moves that look like unadjusted corporate actions.
+
+        This is a backstop rather than the fix -- the fix is auto_adjust. But a
+        split slipping through silently corrupts every downstream number, so it
+        is worth naming the dates rather than letting a strategy trade them.
+        Returns the number of suspicious bars found.
+        """
+        duration = _INTERVAL_DURATION.get(self.interval)
+        if df.empty or len(df) < 2 or duration is None or duration < pd.Timedelta(days=1):
+            return 0
+        moves = df['close'].pct_change()
+        suspects = df.loc[moves.abs() > _SPLIT_SUSPECT_MOVE, 'timestamp']
+        if len(suspects):
+            dates = ', '.join(str(pd.Timestamp(t).date()) for t in suspects.head(5))
+            logger.warning(
+                "%s has %s bar(s) moving more than %.0f%% (%s). On a liquid name that is "
+                "usually an unadjusted split, not a real move — check yahoo.auto_adjust.",
+                symbol,
+                len(suspects),
+                _SPLIT_SUSPECT_MOVE * 100,
+                dates,
+            )
+        return int(len(suspects))
+
+    def _drop_incomplete(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Remove the bar that is still forming.
+
+        Yahoo returns the in-progress period as an ordinary row. Emitting it
+        would hand the strategy a close that has not happened yet, and because
+        the watermark advances past it, the finished version never arrives.
+        """
+        if self.emit_incomplete_bars or df.empty:
+            return df
+        duration = _INTERVAL_DURATION.get(self.interval)
+        if duration is None:
+            return df
+        now = pd.Timestamp.now(tz='UTC').tz_convert(None)
+        complete = df[df['timestamp'] + duration <= now]
+        dropped = len(df) - len(complete)
+        if dropped:
+            logger.debug("Dropped %s in-progress %s bar(s)", dropped, self.interval)
+        return complete
 
     def _ingest_new_bars(self, symbol: str, df: pd.DataFrame) -> None:
+        rows = self._drop_incomplete(df)
         last_ts = self._last_bar_ts.get(symbol)
-        rows = df
         if last_ts is not None:
-            rows = df[df['timestamp'] > last_ts]
+            rows = rows[rows['timestamp'] > last_ts]
         if rows.empty:
             return
 
