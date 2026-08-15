@@ -62,8 +62,8 @@ class TradingJupyterUI:
         
         # Data widgets
         self.data_source = widgets.Dropdown(
-            options=['csv', 'alpaca', 'synthetic'],
-            value='csv',
+            options=['yahoo', 'csv', 'alpaca', 'synthetic'],
+            value='yahoo',
             description='Data Source:',
             style={'description_width': '120px'}
         )
@@ -76,7 +76,7 @@ class TradingJupyterUI:
         
         self.timeframe_input = widgets.Dropdown(
             options=['1m', '5m', '15m', '1h', '1d'],
-            value='1m',
+            value='1d',
             description='Timeframe:',
             style={'description_width': '120px'}
         )

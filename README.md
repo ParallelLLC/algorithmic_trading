@@ -1,127 +1,87 @@
-# Backtest Reality Check
+# Algorithmic Trading
 
-**algotrader 2.0 — a backtester that tries to prove itself wrong.**
+Parallel LLC. Two layers in one repository:
 
-Most backtesting tools answer *"how much would this have made?"*. That is the easy
-question, and the answer is almost always flattering. This one answers the question
-you actually need before risking money: **how much of that was luck?**
+1. **algotrader 2.0** (`algotrader/`, `app.py`): a backtester that tries to prove a rule was luck (permutation, deflated Sharpe, PBO, walk-forward, cost stress).
+2. **Agentic v1** (`agentic_ai_system/`): FinRL policies, Yahoo or Alpaca ingest, paper/live execution, Streamlit/Dash/Jupyter UIs, Docker.
 
-```bash
-pip install -r requirements-space.txt
-python app.py                                   # the Gradio app on localhost:7860
-python -m algotrader.cli lab --symbol SPY --strategy sma_cross
-```
-
-<sub>The v1 agentic trading system (FinRL, Alpaca, Yahoo ingest, Streamlit/Dash UIs) is
-unchanged and still lives here — see [docs/AGENTIC_SYSTEM_V1.md](docs/AGENTIC_SYSTEM_V1.md).</sub>
+Default market data is **Yahoo Finance** (`yfinance>=1.0`), not simulated prices. The simulator exists for offline tests (`--source synthetic` or `ALGOTRADER_OFFLINE=1` with `source=auto`). Live capital still needs a separate evaluation contract. This is research tooling, not investment advice.
 
 ---
 
-## Two labs
+## 1. Title and Summary
 
-**The Lab** validates a timing rule on one asset. **The Portfolio Lab** validates a
-cross-sectional book that ranks many names — and it asks three harder questions,
-because a long-short book fails in ways a timing rule cannot.
+**Algorithmic Trading**  
+Ingest real OHLCV, test whether a timing or cross-sectional rule survives a hostile null, optionally train a FinRL policy, size orders under position and drawdown caps, route to paper or live Alpaca.
 
-## The four ways a backtest lies
+GitHub keeps two branches: `main` (protected) and `dev` (integration).
 
-| The lie | The test | Where |
-|---|---|---|
-| The market had no structure to find | Monte-Carlo **permutation test** — re-run your rule on hundreds of shuffled markets | `algotrader/validation/permutation.py` |
-| You tried 200 things and reported the best | **Deflated Sharpe Ratio** — charge for every variant you tried | `algotrader/validation/deflated_sharpe.py` |
-| The parameters were fitted to the past | **PBO** (CSCV) and **walk-forward** | `algotrader/validation/pbo.py`, `walkforward.py` |
-| The edge is smaller than the costs | **Cost stress test** at 3× friction | `algotrader/lab.py` |
+**Design themes**
 
-Each feeds a single **Reality Score** out of 100 with a grade from A to F:
+* Yahoo as the default public tape (delayed, unofficial, lookback-limited)
+* Validation before belief: permutation, DSR, PBO/CSCV, walk-forward, 3× cost stress
+* FinRL (PPO, A2C, DDPG, TD3) unchanged on the v1 path
+* Alpaca optional for authenticated bars and orders; keys from the environment
+* Synthetic GBM / regime simulator only when requested
+* Secrets never in git
 
-| Weight | Component | What it measures |
-|---:|---|---|
-| 30% | Significance | How far outside the shuffled-market null the result sits |
-| 25% | Selection | Deflated Sharpe — does it clear the best-of-N bar |
-| 20% | Walk-forward | How much of the tuned Sharpe survived trading forward |
-| 15% | Overfitting | 1 − PBO |
-| 10% | Robustness | Sharpe retained when costs triple |
+---
 
-The scale is deliberately harsh. On most markets, plain buy & hold beats every
-strategy in the arena on evidence, and the built-in coin-flip control out-ranks
-several respectable-looking rules. That is the finding, not a bug.
+## 2. Quick start
 
-## The permutation test, concretely
-
-We take the real price series and shuffle it. Each bar's gap, high, low, body and
-volume are kept intact, but their **order** is destroyed. The result is a market
-with the same volatility and the same fat tails, and no exploitable structure at
-all. Then we re-run *your exact rule* on hundreds of these shuffled markets.
-
-If your Sharpe sits inside that cloud, your rule found nothing that a coin-flip
-market would not also have handed it. The p-value is the share of shuffled markets
-that did as well or better.
-
-Block mode resamples contiguous chunks instead of single bars, preserving
-short-horizon momentum and volatility clustering — a harder null that trend
-strategies deserve to be held to.
-
-## Cross-sectional books get a harder null
-
-Shuffling the price path is the right null for a timing rule and the *wrong* one for
-a book that ranks names: it destroys the market's whole correlation structure, and
-almost any long-short book clears a null that weak.
-
-So the Portfolio Lab permutes the **weights across assets within each date**. Every
-calendar effect survives. Every correlation between names survives. Each date's gross
-exposure, net exposure and position count survive *exactly*. The only thing destroyed
-is the link between the strategy's choice and the asset it chose.
-
-A book that beats that null is picking names. One that doesn't was being paid for
-market exposure or a style tilt — which the factor regression measures directly:
-
-| Question | Test |
-|---|---|
-| Did it pick the right names? | Within-date weight permutation |
-| Is it alpha, or beta you can buy for 3bps? | Style regression (market, momentum, low-vol, reversal, liquidity) with White standard errors |
-| Does the universe contain the losers? | Survivorship measured, not assumed |
-
-That last one is not optional. A universe where every name is still trading after ten
-years was chosen after the fact, and every result computed on it is an upper bound.
-The Panel measures survival directly and the Reality Score caps at 60 when it finds
-none.
-
-```python
-from algotrader import PortfolioLabConfig, run_portfolio_lab
-
-report = run_portfolio_lab(PortfolioLabConfig(
-    symbols=["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "GLD", "TLT"],
-    strategy="xs_momentum",
-    rebalance="M",
-))
-print(report.verdict["grade"], report.permutation.p_value)
-print(report.attribution["note"])
-print(report.survivorship.note)
+```bash
+git clone https://github.com/ParallelLLC/algorithmic_trading.git
+cd algorithmic_trading
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-space.txt   # algotrader + Gradio
+# or: pip install -r requirements.txt   # full v1 stack (FinRL, Dash, Docker CI)
 ```
 
 ```bash
-python -m algotrader.cli portfolio --symbols SPY,QQQ,AAPL,MSFT,NVDA --strategy xs_momentum
+python app.py                                      # Gradio, localhost:7860, Yahoo by default
+python -m algotrader.cli lab --symbol SPY --strategy sma_cross
+python -m algotrader.cli lab --symbol NVDA --strategy rsi_reversion --permutations 500
+python -m agentic_ai_system.main --mode backtest --start-date 2024-01-01 --end-date 2024-12-31
 ```
 
-## Turnover is measured against drift, not against the last target
+`config.yaml` defaults:
 
-Holding 50% of a book in a name that doubles leaves you at 67% without trading. A
-backtest that charges turnover as `|target[t] - target[t-1]|` understates the cost of
-doing nothing and overstates the cost of rebalancing. Both engines measure turnover
-against the *drifted* weight instead, and a rebalance schedule (`D`/`W`/`M`/`Q`) lets a
-monthly book drift between dates rather than paying daily to stand still.
+```yaml
+data_source:
+  type: 'yahoo'
+trading:
+  symbol: 'AAPL'
+  timeframe: '1d'    # Yahoo 1m history is ~7 days; use 1d for multi-year windows
+yahoo:
+  auto_adjust: true  # raw Close turns splits into fake crashes
+```
 
-## No look-ahead, by construction
+Alpaca is opt-in: `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` and `data_source.type: alpaca` or `execution.broker_api: alpaca_paper`.
 
-A strategy emits a target exposure at each bar's close using only data up to that
-bar. The engine holds `position[t] = target[t - lag]` with `lag >= 1`, so a signal
-computed on Tuesday's close cannot earn Tuesday's move.
+---
 
-That is the single line where look-ahead could enter, and the test suite asserts it
-from four directions — including that truncating the data never changes the equity
-curve before the cut, and that a `lag=0` request is refused outright.
+## 3. algotrader 2.0 (validation lab)
 
-## Python API
+Most backtests answer "how much would this have made?" This one asks **how much of that was luck?**
+
+### Two labs
+
+**The Lab** validates a timing rule on one asset. **The Portfolio Lab** validates a cross-sectional book that ranks many names.
+
+### The four ways a backtest lies
+
+| The lie | The test | Where |
+| --- | --- | --- |
+| The market had no structure to find | Monte-Carlo permutation (shuffle bar order, keep gap/high/low/body/volume) | `algotrader/validation/permutation.py` |
+| You tried 200 things and reported the best | Deflated Sharpe Ratio | `algotrader/validation/deflated_sharpe.py` |
+| Parameters were fitted to the past | PBO (CSCV) and walk-forward | `algotrader/validation/pbo.py`, `walkforward.py` |
+| The edge is smaller than the costs | Cost stress at 3× friction | `algotrader/lab.py` |
+
+Reality Score (0–100, grades A–F): significance 30%, selection 25%, walk-forward 20%, overfitting 15%, robustness 10%. The scale is harsh on purpose. Buy-and-hold and a coin-flip stay in the arena as controls.
+
+Cross-sectional books use a **within-date weight permutation** so market correlation survives; path-shuffle is the wrong null for a long-short ranker. Survivorship is measured. Style regression (market, momentum, low-vol, reversal, liquidity) with White standard errors.
+
+Look-ahead: `position[t] = target[t - lag]` with `lag >= 1`. Turnover is measured against drifted weights, not `|target[t]-target[t-1]|`.
 
 ```python
 from algotrader import LabConfig, run_lab
@@ -131,114 +91,108 @@ report = run_lab(LabConfig(
     start="2015-01-01",
     strategy="sma_cross",
     params={"fast": 20, "slow": 100},
-    commission_bps=1.0,
-    slippage_bps=2.0,
+    source="yahoo",
     n_permutations=500,
 ))
-
-print(report.verdict["grade"], report.verdict["score"])
-print("p-value          ", report.permutation.p_value)
-print("deflated Sharpe  ", report.dsr["dsr"])
-print("overfit prob.    ", report.pbo["pbo"])
-print("walk-forward eff.", report.walkforward["efficiency"])
-for flag in report.verdict["flags"]:
-    print(" !", flag)
+print(report.verdict["grade"], report.permutation.p_value, report.dsr["dsr"])
 ```
-
-Lower-level pieces compose on their own:
-
-```python
-from algotrader import load_ohlcv, run_backtest, get_strategy
-from algotrader.types import CostModel
-
-market = load_ohlcv("BTC-USD", "2018-01-01")
-strategy = get_strategy("donchian_breakout")
-result = run_backtest(
-    market.df,
-    strategy.generate(market.df, {"window": 55}),
-    costs=CostModel(commission_bps=1, slippage_bps=5, short_borrow_bps=50),
-)
-print(result.metrics["sharpe"], result.metrics["max_drawdown"])
-```
-
-## CLI
 
 ```bash
-python -m algotrader.cli strategies                     # list the zoo
-python -m algotrader.cli lab --symbol NVDA --strategy rsi_reversion --permutations 500
-python -m algotrader.cli lab --symbol SPY --param fast=10 --param slow=50 --json
-python -m algotrader.cli arena --symbol BTC-USD --start 2018-01-01
+python -m algotrader.cli strategies
+python -m algotrader.cli lab --symbol SPY --source yahoo
+python -m algotrader.cli portfolio --symbols SPY,QQQ,AAPL,MSFT,NVDA --strategy xs_momentum
+python -m algotrader.cli lab --source synthetic   # offline tests only
 ```
 
-`--source synthetic` forces the offline simulator, which makes runs fully
-deterministic and network-free.
+Single-asset zoo: `buy_and_hold`, `sma_cross`, `ema_cross`, `macd_trend`, `rsi_reversion`, `bollinger_reversion`, `donchian_breakout`, `momentum`, `vol_target_momentum`, `channel_trend`, `coin_flip`.
 
-## The strategy zoo
+Cross-sectional: `equal_weight`, `xs_momentum`, `xs_reversal`, `low_volatility`, `xs_value_proxy`, `xs_random`.
 
-Single asset: `buy_and_hold` · `sma_cross` · `ema_cross` · `macd_trend` ·
-`rsi_reversion` · `bollinger_reversion` · `donchian_breakout` · `momentum` ·
-`vol_target_momentum` · `channel_trend` · `coin_flip`
+**Data:** `load_ohlcv(..., source="yahoo")` downloads from Yahoo and **raises** if the download is empty. `source="auto"` is the Space fallback (cache, then simulator). `ALGOTRADER_OFFLINE=1` disables the network.
 
-Cross-sectional: `equal_weight` · `xs_momentum` · `xs_reversal` · `low_volatility` ·
-`xs_value_proxy` · `xs_random`
+**HF Space:** `HF_TOKEN=hf_xxx ./scripts/deploy_hf_space.sh <user>/backtest-reality-check`. Card is `SPACE_README.md`. Tests: `python -m pytest tests/test_v2_*.py -q`.
 
-Buy & hold and the coin flip are controls, and they stay in the arena on purpose: a
-leaderboard without a control group is marketing, not measurement.
+References: Bailey & López de Prado (2014) DSR; Bailey et al. (2016) PBO; Masters (2018) permutation tests for trading systems.
 
-Adding one is a function and a registry entry — see `algotrader/strategies.py`.
+---
 
-## Data
+## 4. Concepts and methods (v1 ingest and execution)
 
-Live prices come from Yahoo Finance. When the network is unavailable or rate-limited,
-the app falls back to a deterministic market simulator — regime switching, Student-t
-innovations, persistent volatility — and says so on every result. Naive geometric
-Brownian motion flatters strategies; this simulator does not.
+| Source | Default? | Failure modes |
+| ------ | -------- | ------------- |
+| **Yahoo** | Yes (`config.yaml`, algotrader CLI, Gradio) | Unofficial API, ~15 min delay, 1m ≈ 7 days, split-adjustment required (`auto_adjust: true`) |
+| **Alpaca** | Optional | Auth, feed, rate limits |
+| **CSV** | Replay | Missing path or OHLCV columns |
+| **Synthetic** | Tests / `--source synthetic` | Not tradable edge |
 
-Set `ALGOTRADER_OFFLINE=1` to skip network access entirely.
+`agentic_ai_system.data_ingestion.load_data` dispatches on `data_source.type`. Yahoo stream: `yahoo_data_stream.py` (clamped lookback, no incomplete bars by default).
 
-## Deploying the Hugging Face Space
+* `StrategyAgent`: SMA, RSI, Bollinger, MACD on Close (teaching rule, not an alpha claim)
+* `FinRLAgent`: PPO / A2C / DDPG / TD3 via Stable-Baselines3
+* `ExecutionAgent` / `AlpacaBroker`: paper simulation or Alpaca orders
 
-The Space ships `app.py` plus the `algotrader` package and nothing else, so it builds
-in well under a minute:
+v1 `run_backtest` is a single in-sample pass unless you use algotrader walk-forward. Leakage is the null hypothesis.
+
+---
+
+## 5. Stack
+
+| Layer | Tools |
+| ----- | ----- |
+| Language | Python 3.11 (CI) |
+| Validation | algotrader (permutation, DSR, PBO, walk-forward) |
+| RL | FinRL / Stable-Baselines3, Gym/Gymnasium, PyTorch |
+| Market data | yfinance ≥ 1.0 (default); alpaca-py optional |
+| Tabular | pandas, NumPy, scikit-learn |
+| UI | Gradio (`app.py`); Streamlit, Dash, Jupyter (v1) |
+| Deploy | Docker Compose, GitHub Actions, Hugging Face Space |
+| Tests | pytest |
+
+---
+
+## 6. Structure
+
+```
+algorithmic_trading/
+├── algotrader/                 # 2.0 lab, engine, validation, strategies
+├── app.py                      # Gradio Reality Check
+├── agentic_ai_system/          # v1 FinRL, Yahoo/Alpaca ingest, execution
+├── ui/                         # Streamlit, Dash, Jupyter, WebSocket
+├── tests/
+├── docs/AGENTIC_SYSTEM_V1.md   # v1 notes
+├── config.yaml                 # default data_source.type: yahoo
+├── requirements-space.txt      # Space / algotrader
+├── requirements.txt            # full v1 + CI
+└── scripts/deploy_hf_space.sh
+```
+
+---
+
+## 7. Configuration
+
+| Key | Meaning |
+| --- | ------- |
+| `data_source.type` | `yahoo` (default) \| `csv` \| `synthetic` \| `alpaca` |
+| `trading.timeframe` | Mapped to Yahoo intervals; use `1d` for multi-year history |
+| `yahoo.auto_adjust` | Split/dividend adjust (keep true) |
+| `yahoo.emit_incomplete_bars` | Default false; forming bars are not closes |
+| `execution.broker_api` | `paper` \| `alpaca_paper` \| `alpaca_live` |
+| `finrl.algorithm` | PPO, A2C, DDPG, TD3 |
+| algotrader `--source` | `yahoo` (default) \| `auto` \| `cache` \| `synthetic` |
+
+---
+
+## 8. Tests and ops
 
 ```bash
-HF_TOKEN=hf_xxx ./scripts/deploy_hf_space.sh <your-username>/backtest-reality-check
+python -m pytest tests/test_v2_*.py -q
+python -m pytest tests/test_yahoo_data_stream.py tests/test_data_ingestion.py -q
 ```
 
-Or set the `HF_TOKEN` secret and `HF_SPACE_ID` variable on the repository and let
-`.github/workflows/sync-hf-space.yml` publish on every push to `main`. The workflow
-runs the test suite and builds the app before it publishes anything.
+UI launchers and Docker: `UI_SETUP.md`, `DOCKER_HUB_SETUP.md`. Branch policy: `main` and `dev` only. Do not re-enable Dependabot.
 
-`SPACE_README.md` is the Space card (with the Hugging Face YAML frontmatter);
-`requirements-space.txt` is its dependency set. The root `requirements.txt` still
-carries the full v1 stack for CI, Docker and the FinRL agents.
+---
 
-## Tests
-
-```bash
-python -m pytest tests/test_v2_*.py -q     # 162 tests, ~25s, no network
-```
-
-The validation tests check both directions, which is the part that matters: the
-statistics must reject noise **and** detect a real edge. They build a market with
-genuine serial correlation and assert that the permutation test finds it, that PBO
-stays near 0.5 on pure noise and drops below 0.15 when one variant is genuinely
-better, and that walk-forward efficiency survives.
-
-The cross-sectional null is held to the same standard, and it is calibrated: on a
-universe with no cross-sectional structure it returns p ≈ 0.5, and its power rises
-monotonically with the size of the injected effect. The tests also assert the
-permutation preserves each date's gross exposure, net exposure and position count
-exactly — if it did not, the null would be testing something else.
-
-## References
-
-- Bailey & López de Prado (2014), *The Deflated Sharpe Ratio: Correcting for Selection
-  Bias, Backtest Overfitting and Non-Normality*
-- Bailey, Borwein, López de Prado & Zhu (2016), *The Probability of Backtest Overfitting*
-- Masters (2018), *Permutation and Randomization Tests for Trading System Development*
-
-## License
-
-Apache-2.0. Research tooling, not investment advice. Nothing here is a
-recommendation to trade.
+**License:** Apache License 2.0  
+**Organization:** [Parallel LLC](https://github.com/ParallelLLC)  
+**Repository:** <https://github.com/ParallelLLC/algorithmic_trading>

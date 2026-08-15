@@ -158,11 +158,12 @@ class TradingDashApp:
                                     dbc.Select(
                                         id="data-source-select",
                                         options=[
+                                            {"label": "Yahoo Finance", "value": "yahoo"},
                                             {"label": "CSV File", "value": "csv"},
                                             {"label": "Alpaca API", "value": "alpaca"},
                                             {"label": "Synthetic Data", "value": "synthetic"}
                                         ],
-                                        value="csv"
+                                        value="yahoo"
                                     )
                                 ], width=4),
                                 dbc.Col([

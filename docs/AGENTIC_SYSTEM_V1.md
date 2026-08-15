@@ -1,6 +1,6 @@
 # Algorithmic Trading
 
-FinRL reinforcement-learning trading with Alpaca execution, plus optional Yahoo Finance OHLCV for unlabeled real-price research. Parallel LLC.
+FinRL reinforcement-learning trading with Alpaca execution, plus Yahoo Finance OHLCV as the default public tape. Parallel LLC.
 
 This is **research and paper-trading infrastructure**. Live capital requires a separate evaluation contract, feature-parity tests, and a rewritten execution path. Do not treat `paper_trading: false` as a promotion gate.
 
@@ -9,9 +9,9 @@ This is **research and paper-trading infrastructure**. Live capital requires a s
 ## 1. Title and Summary
 
 **Algorithmic Trading**  
-Northwestern-trained data-engineering practice applied to a trading loop: ingest OHLCV, compute indicators or train a FinRL policy, size orders under position and drawdown caps, route to paper or live Alpaca.
+Ingest OHLCV, compute indicators or train a FinRL policy, size orders under position and drawdown caps, route to paper or live Alpaca.
 
-GitHub `main` is the FinRL / Docker / Streamlit tree. `dev` is the integration branch. Yahoo is an additive `data_source.type`, not a replacement for Alpaca or FinRL.
+GitHub `main` is the FinRL / Docker / Streamlit tree plus algotrader 2.0. `dev` is the integration branch. Yahoo is the default `data_source.type`.
 
 **Design themes**
 

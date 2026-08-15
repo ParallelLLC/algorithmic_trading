@@ -342,6 +342,7 @@ def analyse_portfolio(
             symbols=universe,
             start=start or "2015-01-01",
             end=end or None,
+            source="yahoo",
             strategy=strategy_key,
             params=params,
             commission_bps=float(commission),
@@ -450,6 +451,7 @@ def analyse(
             symbol=symbol or "SPY",
             start=start or "2015-01-01",
             end=end or None,
+            source="yahoo",
             strategy=strategy_key,
             params=collect_params(strategy_key, p1, p2, p3),
             commission_bps=float(commission),
@@ -484,6 +486,7 @@ def race(symbol: str, start: str, allow_short: bool, n_permutations: int, progre
         cfg = LabConfig(
             symbol=symbol or "SPY",
             start=start or "2015-01-01",
+            source="yahoo",
             allow_short=bool(allow_short),
         )
         table, market, _ = run_arena(

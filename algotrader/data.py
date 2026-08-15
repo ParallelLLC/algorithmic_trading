@@ -209,12 +209,12 @@ def load_ohlcv(
     start: str = "2015-01-01",
     end: str | None = None,
     interval: str = "1d",
-    source: str = "auto",
+    source: str = "yahoo",
 ) -> MarketData:
-    """Load OHLCV for ``symbol``, never raising for a merely-unreachable network.
+    """Load OHLCV for ``symbol``.
 
-    ``source`` is one of ``auto`` (download, then cache, then simulate),
-    ``cache``, or ``synthetic``.
+    Default ``source='yahoo'`` requires a Yahoo download. ``auto`` still falls
+    back to cache then the simulator (Hugging Face Space). ``synthetic`` is tests only.
     """
     symbol = (symbol or "SPY").strip().upper()
 
@@ -222,11 +222,17 @@ def load_ohlcv(
         df = simulate_ohlcv(symbol, start, end, interval)
         return MarketData(symbol, df, "synthetic", interval, "Simulated prices (requested).")
 
-    if source in ("auto", "live"):
+    if source in ("yahoo", "live", "auto"):
         df = _download(symbol, start, end, interval)
         if df is not None and len(df) > 50:
             _write_cache(symbol, interval, df)
             return MarketData(symbol, df, "yfinance", interval, "Live data from Yahoo Finance.")
+        if source in ("yahoo", "live"):
+            raise RuntimeError(
+                f"Yahoo returned no usable bars for {symbol}. "
+                "Check the ticker, date range, and network. "
+                "Pass source='synthetic' only for offline tests."
+            )
 
     cached = _read_cache(symbol, interval)
     if cached is not None and len(cached) > 50:

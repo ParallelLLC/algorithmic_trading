@@ -33,8 +33,8 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--end", default=None)
     parser.add_argument("--interval", default="1d")
     parser.add_argument(
-        "--source", default="auto", choices=["auto", "cache", "synthetic"],
-        help="'auto' downloads and falls back offline; 'synthetic' forces the simulator.",
+        "--source", default="yahoo", choices=["yahoo", "live", "auto", "cache", "synthetic"],
+        help="'yahoo' requires a Yahoo download. 'synthetic' is offline tests only. 'auto' falls back to the simulator.",
     )
     parser.add_argument("--commission-bps", type=float, default=1.0)
     parser.add_argument("--slippage-bps", type=float, default=2.0)

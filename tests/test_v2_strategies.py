@@ -119,10 +119,15 @@ class TestData:
         assert returns.kurtosis() > 1.0
         assert returns.abs().autocorr(1) > 0.05
 
+    def test_yahoo_source_does_not_silently_simulate(self, monkeypatch):
+        monkeypatch.setattr("algotrader.data._download", lambda *a, **k: None)
+        with pytest.raises(RuntimeError, match="Yahoo returned no usable bars"):
+            load_ohlcv("SPY", "2018-01-01", "2022-01-01", source="yahoo")
+
     def test_offline_load_falls_back_and_says_so(self, monkeypatch):
         monkeypatch.setattr("algotrader.data._download", lambda *a, **k: None)
         monkeypatch.setattr("algotrader.data._read_cache", lambda *a, **k: None)
-        market = load_ohlcv("SPY", "2018-01-01", "2022-01-01")
+        market = load_ohlcv("SPY", "2018-01-01", "2022-01-01", source="auto")
         assert market.source == "synthetic"
         assert not market.is_real
         assert "unavailable" in market.note

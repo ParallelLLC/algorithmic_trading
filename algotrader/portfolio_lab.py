@@ -52,7 +52,7 @@ class PortfolioLabConfig:
     start: str = "2015-01-01"
     end: Optional[str] = None
     interval: str = "1d"
-    source: str = "auto"
+    source: str = "yahoo"
 
     strategy: str = "xs_momentum"
     params: Dict[str, float] = field(default_factory=dict)

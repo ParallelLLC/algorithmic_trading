@@ -38,7 +38,7 @@ class LabConfig:
     start: str = "2015-01-01"
     end: Optional[str] = None
     interval: str = "1d"
-    source: str = "auto"
+    source: str = "yahoo"
 
     strategy: str = "sma_cross"
     params: Dict[str, float] = field(default_factory=dict)
