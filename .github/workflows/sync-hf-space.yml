@@ -1,0 +1,52 @@
+name: Sync Hugging Face Space
+
+# Publishes app.py + the algotrader package to a Hugging Face Space.
+#
+# Setup (one time):
+#   1. Create the Space at https://huggingface.co/new-space with SDK "Gradio".
+#   2. Add repository secret HF_TOKEN — a write token from
+#      https://huggingface.co/settings/tokens
+#   3. Add repository variable HF_SPACE_ID, e.g. "your-username/backtest-reality-check".
+#
+# Without those set the job is skipped, so forks and PRs are unaffected.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'algotrader/**'
+      - 'SPACE_README.md'
+      - 'requirements-space.txt'
+      - 'tests/test_v2_*.py'
+      - '.github/workflows/sync-hf-space.yml'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: vars.HF_SPACE_ID != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify the Space actually runs before publishing it
+        run: |
+          pip install --quiet -r requirements-space.txt pytest
+          python -m pytest tests/test_v2_engine.py tests/test_v2_validation.py \
+                           tests/test_v2_strategies.py tests/test_v2_portfolio.py -q
+          ALGOTRADER_OFFLINE=1 python -c "import app; app.build_app(); print('Space builds OK')"
+
+      - name: Push to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "HF_TOKEN secret is not set; skipping publish." >&2
+            exit 0
+          fi
+          chmod +x scripts/deploy_hf_space.sh
+          ./scripts/deploy_hf_space.sh "${{ vars.HF_SPACE_ID }}"
